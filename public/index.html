@@ -9,8 +9,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="style.css">
 
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <!-- Place favicon.ico in the root directory -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+    <meta name="msapplication-TileColor" content="#da532c">
+    <meta name="theme-color" content="#ffffff">
 
     <script src="https://cdn.jsdelivr.net/npm/scittle@0.6.15/dist/scittle.js" type="application/javascript"></script>
     <script>var SCITTLE_NREPL_WEBSOCKET_PORT = 1340;</script>
@@ -28,8 +33,24 @@
       </p>
     <![endif]-->
 
-  <div id="video">
-    <video autoplay></video>
+  <div id="container">
+    <h1>cljcastr</h1>
+    <div id="sources">
+      <div id="selects">
+        <div class="select">
+          <label for="videoSource">Video source:</label>
+          <select id="videoSource"></select>
+        </div>
+        <div class="select">
+          <label for="audioSource">Audio source:</label>
+          <select id="audioSource"></select>
+        </div>
+      </div>
+      <div id="stop">
+        <input id="stop" type="button" value="Stop" />
+      </div>
+    </div>
+    <video autoplay muted playsinline></video>
   </div>
 </body>
 
