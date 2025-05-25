@@ -1,5 +1,6 @@
 (ns cljcastr.transcription
   (:require [babashka.fs :as fs]
+            [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
             [cljcastr.time :as time]
             [cljcastr.util :as util :refer [->map]]))
@@ -173,6 +174,22 @@
 
   )
 
+(defn paragraphs->edn [paragraphs]
+  (with-out-str
+    (->> paragraphs
+         vec
+         (assoc {} :transcript)
+         pprint)))
+
+(comment
+
+  (->> paragraphs
+       (take 5)
+       paragraphs->edn)
+  ;; => "{:transcript\n [{:ts \"00:00:00.32\", :speaker \"defn podcast\", :text \"dive right in\"}\n  {:ts \"00:00:01.55\",\n   :speaker \"Nathan\",\n   :text \"Mm-hmm. Mm-hmm. Mm-hmm.\"}\n  {:ts \"00:00:03.96\", :speaker \"Ray\", :text \"Okay.\"}\n  {:ts \"00:00:04.83\",\n   :speaker \"defn podcast\",\n   :text\n   \"Everybody good on water and biological functions, etc. Okay. All right.\"}\n  {:ts \"00:00:11.01\", :speaker \"Ray\", :text \"Yep.\"}]}\n"
+
+  )
+
 (comment
 
   (def podcast-name "defn")
@@ -186,8 +203,16 @@
        (fixup-timestamps {:start-at "00:03:39.21"})
        remove-active-listening
        join-speakers
-       (map (comp (partial str/join "\n") vals))
-       (str/join "\n\n")
+       z/paragraphs->transcript
        (spit out-file))
+
+  (def out-edn (fs/file "/tmp" (format "%s_transcription.edn" episode-name)))
+
+  (->> paragraphs
+       (fixup-timestamps {:start-at "00:03:39.21"})
+       remove-active-listening
+       join-speakers
+       paragraphs->edn
+       (spit out-edn))
 
   )
