@@ -1,0 +1,5 @@
+{:paths ["src" "resources"]
+ :deps {org.babashka/cli {:mvn/version "0.8.65"}
+        babashka/fs {:mvn/version "0.5.26"}
+        babashka/process {:mvn/version "0.6.23"}
+        selmer/selmer {:mvn/version "1.12.62"}}}
