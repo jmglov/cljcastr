@@ -1,0 +1,42 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<rss version="2.0"
+     xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"
+     xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>{{podcast.title}}</title>
+    <description>{{podcast.description|safe}}</description>
+    <itunes:image href="{{base-url}}{{podcast.image}}"/>
+    <language>{{podcast.language}}</language>
+    <itunes:explicit>{{podcast.explicit}}</itunes:explicit>
+{% for category in podcast.categories %}
+    <itunes:category text="{{category.text}}">
+{% for subcategory in category.subcategories %}
+      <itunes:category text="{{subcategory.text}}" />
+{% endfor %}
+    </itunes:category>
+{% endfor %}
+    <itunes:author>{{podcast.author}}</itunes:author>
+    <link>{{base-url}}</link>
+    <itunes:title>{{podcast.title}}</itunes:title>
+    <itunes:type>{{podcast.type}}</itunes:type>
+    <copyright>{{podcast.copyright}}</copyright>
+{% for episode in episodes %}
+    <item>
+      <title>{{episode.title}}</title>
+      <enclosure
+          url="{{base-url}}/{{episode.path}}/{{episode.audio-file}}"
+          length="{{episode.audio-filesize}}"
+          type="{{episode.mime-type}}" />
+      <guid>{{base-url}}/{{episode.path}}/{{episode.audio-file}}</guid>
+      <pubDate>{{episode.date}}</pubDate>
+      <description><![CDATA[{{episode.description|safe}}]]></description>
+      <itunes:duration>{{episode.duration}}</itunes:duration>
+      <link>{{base-url}}/{{episode.path}}</link>
+      <itunes:title>{{episode.title}}</itunes:title>
+      {% if episode.number %}<itunes:episode>{{episode.number}}</itunes:episode>{% endif %}
+      <itunes:episodeType>{{episode.type}}</itunes:episodeType>
+      <transcriptUrl>{{base-url}}/{{episode.path}}/{{episode.transcript-file}}</transcriptUrl>
+    </item>
+{% endfor %}
+  </channel>
+</rss>
