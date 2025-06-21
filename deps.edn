@@ -2,4 +2,18 @@
  :deps {org.babashka/cli {:mvn/version "0.8.65"}
         babashka/fs {:mvn/version "0.5.26"}
         babashka/process {:mvn/version "0.6.23"}
-        selmer/selmer {:mvn/version "1.12.62"}}}
+        io.github.babashka/sci.nrepl {:git/sha "83861f7ceced223870ef52b6f6b4d181ede05a86"}
+        io.github.babashka/http-server {:git/sha "3e54843ac3c9cd4ecacf8cdb2f7f79482252b1ed"}
+        selmer/selmer {:mvn/version "1.12.62"}}
+ :aliases
+ {
+
+  :test
+  {:extra-paths ["test"]
+   :extra-deps {io.github.cognitect-labs/test-runner
+                {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+   :exec-args {:cmd "bb test"}
+   :main-opts ["-m" "babashka.cli.exec"]
+   :exec-fn cljcastr.test-runner/test}
+
+  }}
