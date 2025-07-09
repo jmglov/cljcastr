@@ -19,3 +19,16 @@ shirt, you can find it
 [here](https://www.etsy.com/listing/1241766068/babashka-clj-kondo-nbb-shirt). I
 would encourage you to put a piece of duct tape or a SCI sticker or something
 over the [nbb](https://github.com/babashka/nbb) logo on the back. 😜
+
+## Local development
+
+``` text
+$ bb dev --http-port 8080 --nrepl-port 1337 --websocket-port 1338
+
+Starting webserver on port 8080 with root public
+Starting nrepl server on port 1337 and websocket server on port 1338
+Serving assets at http://localhost:8080
+Serving static assets at http://localhost:8080
+nREPL server started on port 1337...
+Websocket server started on 1338...
+```

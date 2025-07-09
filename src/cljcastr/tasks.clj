@@ -1,15 +1,24 @@
 (ns cljcastr.tasks
   (:require [babashka.cli :as cli]
             [babashka.fs :as fs]
+            [babashka.http-server :as http]
             [babashka.process :as p]
             [cljcastr.rss :as rss]
             [cljcastr.template :as template]
-            [cljcastr.util :as util]
+            [cljcastr.util :as util :refer [->int ->map]]
             [clojure.edn :as edn]
             [clojure.string :as str]
+            [sci.nrepl.browser-server :as bp]
             [selmer.parser :as selmer]))
 
 (def ^:dynamic *default-podcast-config-filename* "podcast.edn")
+
+(def default-opts
+  {:assets-dir "assets"
+   :templates-dir "templates"
+   :css-file (fs/file "css" "main.css")
+   :feed-file "feed.rss"
+   :index-file "index.html"})
 
 (defn load-edn [filename]
   (-> (slurp filename)
@@ -120,3 +129,27 @@
         (apply println invalidate-cmd)
         (when-not dryrun
           (apply shell invalidate-cmd))))))
+
+(defn http-server [opts]
+  (let [{http-port :http-port, http-root :http-root
+         :or {http-port 1341 http-root "public"}}
+        (merge opts (cli/parse-opts *command-line-args*))
+        http-port (->int http-port)]
+    (println (format "Starting webserver on port %d with root %s"
+                     http-port http-root))
+    (try
+      (http/serve {:port http-port, :dir http-root})
+      ;; Annoyingly, this prints even when an exception is thrown
+      (println (format "Serving static assets at http://localhost:%d" http-port))
+      (catch java.net.BindException e
+        (println (format "Address in use: localhost:%d" http-port))
+        (throw e)))))
+
+(defn browser-nrepl [opts]
+  (let [{:keys [nrepl-port websocket-port]}
+        (merge opts (cli/parse-opts *command-line-args*))
+        nrepl-port (->int (or nrepl-port 1339))
+        websocket-port (->int (or websocket-port 1340))]
+    (println (format "Starting nrepl server on port %d and websocket server on port %d"
+                     nrepl-port websocket-port))
+    (bp/start! (->map nrepl-port websocket-port))))
