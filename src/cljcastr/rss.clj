@@ -42,25 +42,27 @@
            :description (selmer/render description
                                        (assoc opts :episode episode)))))
 
-(defn podcast-feed [{:keys [podcast] :as opts}]
-  (let [template (-> (io/resource "podcast-feed.rss") slurp)
-        sort-fn (fn [ep1 ep2]
+(defn update-episodes [{:keys [podcast] :as opts}]
+  (let [sort-fn (fn [ep1 ep2]
                   (if (= (:type podcast) "Serial")
                     (compare (or (:number ep1) 0)
                              (or (:number ep2) 0))
                     (compare (or (:number ep2) 0)
                              (or (:number ep1) 0))))]
-    (selmer/render template
-                   (-> opts
-                       (assoc :datetime-now (now))
-                       (update :episodes
-                               (fn [episodes]
-                                 (->> episodes
-                                      (sort sort-fn)
-                                      (filter #(or (:include-previews opts)
-                                                   (not (:preview? %))))
-                                      (map (partial update-episode opts)))))
-                       template/expand-context))))
+    (-> opts
+        (assoc :datetime-now (now))
+        (update :episodes
+                (fn [episodes]
+                  (->> episodes
+                       (sort sort-fn)
+                       (filter #(or (:include-previews opts)
+                                    (not (:preview? %))))
+                       (map (partial update-episode opts)))))
+        template/expand-context)))
+
+(defn podcast-feed [opts]
+  (let [template (-> (io/resource "podcast-feed.rss") slurp)]
+    (selmer/render template (update-episodes opts))))
 
 (comment
 

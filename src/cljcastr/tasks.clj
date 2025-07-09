@@ -45,23 +45,37 @@
       (println (:err p)))
     p))
 
+(defn render-file [filename opts]
+  (selmer/render (slurp filename) opts))
+
 (defn render
-  ([default-opts]
-   (render (str (fs/cwd)) default-opts))
-  ([dir default-opts]
-   (render dir *default-podcast-config-filename* default-opts))
-  ([dir filename default-opts]
-   (let [{:keys [base-dir episodes episodes-dir out-dir] :as opts}
-         (load-config dir filename
-                           (merge {:base-dir (fs/cwd)} default-opts))
+  ([opts]
+   (render (str (fs/cwd)) opts))
+  ([dir opts]
+   (render dir *default-podcast-config-filename* opts))
+  ([dir filename opts]
+   (let [{:keys [base-dir assets-dir templates-dir
+                 css-file feed-file index-file
+                 episodes episodes-dir out-dir] :as opts}
+         (load-config dir filename (merge {:base-dir (fs/cwd)}
+                                          default-opts
+                                          opts))
+         opts (if (and (:dev opts) (:http-port opts))
+                (assoc opts :base-url
+                       (format "http://localhost:%s" (:http-port opts)))
+                opts)
          out-dir (fs/file base-dir out-dir)
-         css-file (fs/file out-dir "css" "main.css")
-         css-contents (selmer/render (slurp (fs/file base-dir "assets/css/main.css"))
-                                     opts)
-         feed-file (fs/file out-dir (or (:feed-file opts) "feed.rss"))
-         index-file (fs/file out-dir "index.html")
-         index-contents (selmer/render (slurp (fs/file base-dir "templates/index.html"))
-                                       opts)]
+         css-out-file (fs/file out-dir css-file)
+         css-contents (render-file (fs/file base-dir assets-dir css-file) opts)
+         feed-file (fs/file out-dir feed-file)
+         index-out-file (fs/file out-dir index-file)
+         index-contents (render-file (fs/file base-dir templates-dir index-file) opts)
+         updated-asset-files (util/copy-modified! assets-dir out-dir)]
+
+     (doseq [file updated-asset-files]
+       (println (format "Asset file %s/%s newer than %s/%s; updating"
+                        assets-dir file (fs/relativize base-dir out-dir) file)))
+
      (doseq [{:keys [filename path slug] :as episode}
              (->> (load-edn (fs/file dir filename))
                   :episodes
@@ -74,37 +88,42 @@
                   (util/relative-filename out-dir tgt-filename))
          (fs/create-dirs (fs/parent tgt-filename))
          (fs/copy src-filename tgt-filename))
+
        (when (util/modified-since? src-filename tgt-filename)
-         (println "Episode file" (util/relative-filename base-dir src-filename)
-                  "newer than" (util/relative-filename out-dir tgt-filename)
-                  "; updating")
+         (println (format "Episode file %s newer than %s; updating"
+                          (util/relative-filename base-dir src-filename)
+                          (util/relative-filename out-dir tgt-filename)))
          (fs/copy src-filename tgt-filename {:replace-existing true})))
-     (when-not (and (fs/exists? index-file)
-                    (= index-contents (slurp index-file)))
-       (println (format "Writing %s" (util/relative-filename out-dir index-file)))
-       (fs/create-dirs (fs/parent index-file))
-       (spit index-file index-contents))
-     (when-not (and (fs/exists? css-file)
-                    (= css-contents (slurp css-file)))
-       (println (format "Writing %s" (util/relative-filename out-dir css-file)))
-       (fs/create-dirs (fs/parent css-file))
-       (spit css-file css-contents))
+
+     (when-not (and (fs/exists? index-out-file)
+                    (= index-contents (slurp index-out-file)))
+       (println (format "Writing %s" (util/relative-filename out-dir index-out-file)))
+       (fs/create-dirs (fs/parent index-out-file))
+       (spit index-out-file index-contents))
+
+     (when-not (and (fs/exists? css-out-file)
+                    (= css-contents (slurp css-out-file)))
+       (println (format "Writing %s" (util/relative-filename out-dir css-out-file)))
+       (fs/create-dirs (fs/parent css-out-file))
+       (spit css-out-file css-contents))
      (println (format "Writing RSS feed %s"
                       (util/relative-filename out-dir feed-file)))
+
      (->> (rss/podcast-feed opts)
           (spit feed-file))
-     #_(let [template (slurp "templates/episode-page.html")
-             opts (rss/update-episodes opts)]
-         (doseq [{:keys [path] :as episode} (:episodes opts)
-                 :let [filename (format "%s/%s%s/%s"
-                                        base-dir out-dir path "index.html")]]
-           (println "Writing episode page" filename)
-           (->> (selmer/render template (assoc opts :episode episode))
-                (spit filename)))))))
 
-(defn publish-aws [default-opts]
+     (let [template (slurp "templates/episode-page.html")
+           opts (rss/update-episodes opts)]
+       (doseq [{:keys [path] :as episode} (:episodes opts)
+               :let [filename (fs/file out-dir path "index.html")]]
+         (println "Writing episode index:"
+                  (util/relative-filename out-dir filename))
+         (->> (selmer/render template (assoc opts :episode episode))
+              (spit filename)))))))
+
+(defn publish-aws [opts]
   (let [{:keys [website-bucket out-dir distribution-id dryrun]
-         :as opts} (merge default-opts
+         :as opts} (merge opts
                           (cli/parse-opts *command-line-args*))
         sync-cmd (concat ["aws s3 sync"]
                          (when dryrun ["--dryrun"])
