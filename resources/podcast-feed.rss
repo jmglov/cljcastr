@@ -31,7 +31,7 @@
       <pubDate>{{episode.date}}</pubDate>
       <description><![CDATA[{{episode.description|safe}}]]></description>
       <itunes:duration>{{episode.duration}}</itunes:duration>
-      <link>{{base-url}}/{{episode.path}}</link>
+      <link>{{base-url}}/{{episode.path}}/index.html</link>
       <itunes:title>{{episode.title}}</itunes:title>
       {% if episode.number %}<itunes:episode>{{episode.number}}</itunes:episode>{% endif %}
       <itunes:episodeType>{{episode.type}}</itunes:episodeType>
