@@ -38,6 +38,7 @@
       <link>{{base-url}}/{{episode.path}}/index.html</link>
       <itunes:title>{{episode.title}}</itunes:title>
       {% if episode.number %}<itunes:episode>{{episode.number}}</itunes:episode>{% endif %}
+      {% if episode.season %}<itunes:season>{{episode.season}}</itunes:season>{% endif %}
       <itunes:episodeType>{{episode.type}}</itunes:episodeType>
       <transcriptUrl>{{base-url}}/{{episode.path}}/{{episode.transcript-file}}</transcriptUrl>
     </item>
