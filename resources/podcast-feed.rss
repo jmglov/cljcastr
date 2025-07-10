@@ -16,6 +16,10 @@
     </itunes:category>
 {% endfor %}
     <itunes:author>{{podcast.author}}</itunes:author>
+    <itunes:owner>
+      <itunes:name>{{podcast.author}}</itunes:name>
+      <itunes:email>{{podcast.email}}</itunes:email>
+    </itunes:owner>
     <link>{{base-url}}</link>
     <itunes:title>{{podcast.title}}</itunes:title>
     <itunes:type>{{podcast.type}}</itunes:type>
