@@ -47,3 +47,24 @@
       (fs/create-dirs (fs/parent dst))
       (fs/copy src dst {:replace-existing true}))
     files))
+
+(defn ->snake_case [obj]
+  (cond
+    (keyword? obj)
+    (-> obj name (str/replace #"-" "_") keyword)
+
+    (vector? obj)
+    (->> obj
+         (map ->snake_case)
+         (into []))
+
+    (sequential? obj)
+    (map ->snake_case obj)
+
+    (map? obj)
+    (->> obj
+         (map (fn [[k v]] [(->snake_case k) (->snake_case v)]))
+         (into {}))
+
+    :else
+    obj))

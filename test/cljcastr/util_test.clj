@@ -213,3 +213,22 @@
         (is (= "Stuff and things" (slurp boring-file-dst))))))
 
   )
+
+(deftest camel-snake-kebab
+
+  (testing "->snake_case"
+    (is (= :foo_bar_baz (util/->snake_case :foo-bar-baz)))
+    (is (= :foo_bar_baz (util/->snake_case :foo_bar_baz)))
+
+    (is (= {:foo_bar 1, :baz_blah 2}
+           (util/->snake_case {:foo-bar 1, :baz-blah 2})))
+
+    (is (= [:foo_bar "baz-blah" 42]
+           (util/->snake_case [:foo-bar "baz-blah" 42])))
+
+    (is (= {:foo_bar ["baz-blah" {:and_so_on {:for_ever ["and-ever"]}}]}
+           (util/->snake_case
+            {:foo-bar ["baz-blah" {:and-so-on {:for-ever ["and-ever"]}}]})))
+
+    (is (= "foo-bar" (util/->snake_case "foo-bar")))
+    (is (= 42 (util/->snake_case 42)))))
