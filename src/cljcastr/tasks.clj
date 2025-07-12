@@ -7,6 +7,7 @@
             [cljcastr.template :as template]
             [cljcastr.util :as util :refer [->int ->map]]
             [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [sci.nrepl.browser-server :as bp]
             [selmer.parser :as selmer]))
@@ -54,16 +55,25 @@
   ([dir opts]
    (render dir *default-podcast-config-filename* opts))
   ([dir filename opts]
-   (let [{:keys [base-dir assets-dir templates-dir
+   (let [{:keys [base-dir assets-dir cljs-dir templates-dir
                  css-file feed-file index-file
                  episodes episodes-dir out-dir] :as opts}
          (load-config dir filename (merge {:base-dir (fs/cwd)}
                                           default-opts
                                           opts))
+         cljs-files (->> (fs/list-dir (io/resource "cljs/cljcastr"))
+                         (map (fn [filename]
+                                (let [src-filename (util/relative-filename
+                                                    (fs/file (io/resource "cljs"))
+                                                    filename)
+                                      tgt-filename (fs/file out-dir cljs-dir src-filename)]
+                                  (->map filename src-filename tgt-filename)))))
          opts (if (and (:dev opts) (:http-port opts))
                 (assoc opts :base-url
                        (format "http://localhost:%s" (:http-port opts)))
                 opts)
+         opts (assoc-in opts [:cljcastr-player :files]
+                        (map :src-filename cljs-files))
          out-dir (fs/file base-dir out-dir)
          css-out-file (fs/file out-dir css-file)
          css-contents (render-file (fs/file base-dir assets-dir css-file) opts)
@@ -112,13 +122,23 @@
      (->> (rss/podcast-feed opts)
           (spit feed-file))
 
+     (doseq [{:keys [filename src-filename tgt-filename]} cljs-files]
+       (when (util/modified-since? filename tgt-filename)
+         (println (format "cljs file %s modified; updating" src-filename))
+         (fs/create-dirs (fs/parent tgt-filename))
+         (fs/copy filename tgt-filename {:replace-existing true})))
+
      (let [template (slurp "templates/episode-page.html")
            opts (rss/update-episodes opts)]
        (doseq [{:keys [path] :as episode} (:episodes opts)
-               :let [filename (fs/file out-dir path "index.html")]]
+               :let [filename (fs/file out-dir path "index.html")
+                     opts (assoc opts :episode episode)
+                     opts (update-in opts [:cljcastr-player :opts]
+                                     #(-> (template/expand-context 5 % opts)
+                                          util/->snake_case))]]
          (println "Writing episode index:"
                   (util/relative-filename out-dir filename))
-         (->> (selmer/render template (assoc opts :episode episode))
+         (->> (selmer/render template opts)
               (spit filename)))))))
 
 (defn publish-aws [opts]
