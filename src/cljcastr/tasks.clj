@@ -87,8 +87,7 @@
                         assets-dir file (fs/relativize base-dir out-dir) file)))
 
      (doseq [{:keys [filename path slug] :as episode}
-             (->> (load-edn (fs/file dir filename))
-                  :episodes
+             (->> (:episodes opts)
                   (map #(template/expand-context 5 % opts)))
              filename (map episode [:audio-file :transcript-file])
              :let [src-filename (fs/file base-dir slug filename)
@@ -135,11 +134,13 @@
                      opts (assoc opts :episode episode)
                      opts (update-in opts [:cljcastr-player :opts]
                                      #(-> (template/expand-context 5 % opts)
-                                          util/->snake_case))]]
-         (println "Writing episode index:"
-                  (util/relative-filename out-dir filename))
-         (->> (selmer/render template opts)
-              (spit filename)))))))
+                                          util/->snake_case))
+                     content (selmer/render template opts)]]
+         (when-not (and (fs/exists? filename)
+                        (= content (slurp filename)))
+           (println "Writing episode index:"
+                    (util/relative-filename out-dir filename))
+           (spit filename content)))))))
 
 (defn publish-aws [opts]
   (let [{:keys [website-bucket out-dir distribution-id dryrun]
