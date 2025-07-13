@@ -1,32 +1,12 @@
 (ns cljcastr.util-test
-  (:require [clojure.string :as str]
-            [clojure.test :refer [deftest is testing use-fixtures]]
-            [babashka.fs :as fs]
-            [cljcastr.util :as util])
+  (:require [babashka.fs :as fs]
+            [cljcastr.test-utils :as test-utils]
+            [cljcastr.util :as util]
+            [clojure.string :as str]
+            [clojure.test :refer [deftest is testing use-fixtures]])
   (:import (java.util UUID)))
 
-(def test-dir ".test")
-
-(use-fixtures :each
-  (fn [test-fn]
-    (with-out-str
-      (test-fn)
-      (fs/delete-tree test-dir))))
-
-(defn- tmp-dir [dir-name]
-  (fs/file test-dir
-           (format "cljcastr-test-%s-%s" dir-name (str (UUID/randomUUID)))))
-
-(defn- spit' [filename content]
-  (fs/create-dirs (fs/parent filename))
-  (spit filename content))
-
-(defmacro with-dirs
-  "dirs is a seq of directory names; e.g. [cache-dir out-dir]"
-  [dirs & body]
-  (let [binding-form# (mapcat (fn [dir] [dir `(tmp-dir ~(str dir))]) dirs)]
-    `(let [~@binding-form#]
-       ~@body)))
+(use-fixtures :each test-utils/test-dir-fixture)
 
 (deftest ->map-test
   (testing "happy path"
@@ -61,55 +41,55 @@
 (deftest modified-since-test
 
   (testing "newer file to file"
-    (with-dirs [tmpdir]
+    (test-utils/with-dirs [tmpdir]
       (fs/create-dirs tmpdir)
       (let [file1 (fs/file tmpdir "file1")
             file2 (fs/file tmpdir "file2")]
-        (spit' file1 "Stuff")
+        (test-utils/spit' file1 "Stuff")
         (Thread/sleep 42)
-        (spit' file2 "Things")
+        (test-utils/spit' file2 "Things")
         (is (= [(str (fs/file tmpdir "file2"))]
                (->> (util/modified-since? file2 file1)
                     (map (comp str fs/file))))))))
 
   (testing "older file to file"
-    (with-dirs [tmpdir]
+    (test-utils/with-dirs [tmpdir]
       (fs/create-dirs tmpdir)
       (let [file1 (fs/file tmpdir "file1")
             file2 (fs/file tmpdir "file2")]
-        (spit' file1 "Stuff")
+        (test-utils/spit' file1 "Stuff")
         (Thread/sleep 42)
-        (spit' file2 "Things")
+        (test-utils/spit' file2 "Things")
         (is (= []
                (->> (util/modified-since? file1 file2)
                     (map (comp str fs/file))))))))
 
   (testing "newer file to dir"
-    (with-dirs [src-dir target-dir]
+    (test-utils/with-dirs [src-dir target-dir]
       (fs/create-dirs src-dir)
       (fs/create-dirs target-dir)
       (let [file1 (fs/file src-dir "file1")]
         (Thread/sleep 42)
-        (spit' file1 "Stuff")
+        (test-utils/spit' file1 "Stuff")
         (is (= [(str (fs/file src-dir "file1"))]
                (->> (util/modified-since? file1 target-dir)
                     (map (comp str fs/file))))))))
 
   (testing "older file to dir"
-    (with-dirs [src-dir target-dir]
+    (test-utils/with-dirs [src-dir target-dir]
       (fs/create-dirs src-dir)
       (fs/create-dirs target-dir)
       (let [file1 (fs/file src-dir "file1")
             target1 (fs/file target-dir "file1")]
-        (spit' file1 "Stuff")
+        (test-utils/spit' file1 "Stuff")
         (Thread/sleep 42)
-        (spit' target1 "Things")
+        (test-utils/spit' target1 "Things")
         (is (= []
                (->> (util/modified-since? file1 target-dir)
                     (map (comp str fs/file))))))))
 
   (testing "some newer files to dir"
-    (with-dirs [src-dir target-dir]
+    (test-utils/with-dirs [src-dir target-dir]
       (fs/create-dirs src-dir)
       (fs/create-dirs target-dir)
       (let [file1 (fs/file src-dir "file1")
@@ -119,19 +99,19 @@
             file3 (fs/file src-dir "file3")
             target3 (fs/file target-dir "file3")]
         (Thread/sleep 42)
-        (spit' file1 "Stuff")
-        (spit' file2 "Things")
-        (spit' file3 "Stuff and things")
-        (spit' target3 "Whatever")
+        (test-utils/spit' file1 "Stuff")
+        (test-utils/spit' file2 "Things")
+        (test-utils/spit' file3 "Stuff and things")
+        (test-utils/spit' target3 "Whatever")
         (Thread/sleep 42)
-        (spit' file1 "More stuff")
-        (spit' file2 "More things")
+        (test-utils/spit' file1 "More stuff")
+        (test-utils/spit' file2 "More things")
         (is (= [(str file1) (str file2)]
                (->> (util/modified-since? [file1 file2 file3] target-dir)
                     (map (comp str fs/file))))))))
 
   (testing "no newer files to dir"
-    (with-dirs [src-dir target-dir]
+    (test-utils/with-dirs [src-dir target-dir]
       (fs/create-dirs src-dir)
       (fs/create-dirs target-dir)
       (let [file1 (fs/file src-dir "file1")
@@ -141,17 +121,17 @@
             file3 (fs/file src-dir "file3")
             target3 (fs/file target-dir "file3")]
         (Thread/sleep 42)
-        (spit' file1 "Stuff")
-        (spit' file2 "Things")
-        (spit' file3 "Stuff and things")
+        (test-utils/spit' file1 "Stuff")
+        (test-utils/spit' file2 "Things")
+        (test-utils/spit' file3 "Stuff and things")
         (Thread/sleep 42)
-        (spit' target3 "Whatever")
+        (test-utils/spit' target3 "Whatever")
         (is (= []
                (->> (util/modified-since? [file1 file2 file3] target-dir)
                     (map (comp str fs/file))))))))
 
   (testing "dir with some newer files to dir"
-    (with-dirs [src-dir target-dir]
+    (test-utils/with-dirs [src-dir target-dir]
       (fs/create-dirs src-dir)
       (fs/create-dirs target-dir)
       (let [file1 (fs/file src-dir "file1")
@@ -161,13 +141,13 @@
             file3 (fs/file src-dir "file3")
             target3 (fs/file target-dir "file3")]
         (Thread/sleep 42)
-        (spit' file1 "Stuff")
-        (spit' file2 "Things")
-        (spit' file3 "Stuff and things")
-        (spit' target3 "Whatever")
+        (test-utils/spit' file1 "Stuff")
+        (test-utils/spit' file2 "Things")
+        (test-utils/spit' file3 "Stuff and things")
+        (test-utils/spit' target3 "Whatever")
         (Thread/sleep 42)
-        (spit' file1 "More stuff")
-        (spit' file2 "More things")
+        (test-utils/spit' file1 "More stuff")
+        (test-utils/spit' file2 "More things")
         (is (= [(str file1) (str file2)]
                (->> (util/modified-since? src-dir target-dir)
                     (map (comp str fs/file))
@@ -188,7 +168,7 @@
 (deftest copy-modified-test
 
   (testing "happy path"
-    (with-dirs [src-dir dst-dir]
+    (test-utils/with-dirs [src-dir dst-dir]
       (fs/create-dirs src-dir)
       (fs/create-dirs dst-dir)
       (let [new-file (fs/file src-dir "new" "file")
@@ -197,12 +177,12 @@
             modified-file-dst (fs/file dst-dir "modified" "file")
             boring-file (fs/file src-dir "boring" "file")
             boring-file-dst (fs/file dst-dir "boring" "file")]
-        (spit' new-file "Stuff")
-        (spit' modified-file-dst "Things")
-        (spit' boring-file "Boring")
+        (test-utils/spit' new-file "Stuff")
+        (test-utils/spit' modified-file-dst "Things")
+        (test-utils/spit' boring-file "Boring")
         (Thread/sleep 42)
-        (spit' modified-file "More things")
-        (spit' boring-file-dst "Stuff and things")
+        (test-utils/spit' modified-file "More things")
+        (test-utils/spit' boring-file-dst "Stuff and things")
         (is (= (->> [["new" "file"]
                      ["modified" "file"]]
                     (map (comp str (partial apply fs/file)))
