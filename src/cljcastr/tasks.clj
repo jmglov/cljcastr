@@ -80,6 +80,10 @@
          feed-file (fs/file out-dir feed-file)
          index-out-file (fs/file out-dir index-file)
          index-contents (render-file (fs/file base-dir templates-dir index-file) opts)
+         episode-template (-> (:episode-template opts)
+                              (template/expand-template opts))
+         page-template (-> (:page-template opts)
+                           (template/expand-template opts))
          updated-asset-files (util/copy-modified! assets-dir out-dir)]
 
      (doseq [file updated-asset-files]
@@ -115,8 +119,8 @@
        (println (format "Writing %s" (util/relative-filename out-dir css-out-file)))
        (fs/create-dirs (fs/parent css-out-file))
        (spit css-out-file css-contents))
-     (println (format "Writing RSS feed %s"
-                      (util/relative-filename out-dir feed-file)))
+     (println "Writing RSS feed:"
+              (util/relative-filename out-dir feed-file))
 
      (->> (rss/podcast-feed opts)
           (spit feed-file))
@@ -127,7 +131,7 @@
          (fs/create-dirs (fs/parent tgt-filename))
          (fs/copy filename tgt-filename {:replace-existing true})))
 
-     (let [template (slurp "templates/episode-page.html")
+     (let [template (slurp episode-template)
            opts (rss/update-episodes opts)]
        (doseq [{:keys [path] :as episode} (:episodes opts)
                :let [filename (fs/file out-dir path "index.html")
@@ -140,7 +144,19 @@
                         (= content (slurp filename)))
            (println "Writing episode index:"
                     (util/relative-filename out-dir filename))
-           (spit filename content)))))))
+           (spit filename content))))
+
+     (let [template (slurp page-template)]
+       (doseq [{:keys [filename] :as page} (:pages opts)
+               :let [ctx (-> (template/expand-context 5 page opts)
+                             (update :stylesheets
+                                     #(concat (:stylesheets opts) %)))
+                     tgt-filename (fs/file out-dir filename)
+                     content (selmer/render template (merge opts ctx))]]
+         (when-not (and (fs/exists? tgt-filename)
+                        (= content (slurp tgt-filename)))
+           (println "Writing page:" filename)
+           (spit tgt-filename content)))))))
 
 (defn publish-aws [opts]
   (let [{:keys [website-bucket out-dir distribution-id dryrun]
