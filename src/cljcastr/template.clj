@@ -27,7 +27,17 @@
      (map? template)
      (->> template
           (map (fn [[k v]]
-                 [k (expand-template v ctx)]))
+                 (cond
+                   (and (keyword? k)
+                        (= "cljcastr.template" (namespace k)))
+                   [(-> k name keyword)
+                    (-> v
+                        (expand-template ctx)
+                        slurp
+                        (expand-template ctx))]
+
+                   :else
+                   [k (expand-template v ctx)])))
           (into {}))
 
      ;; If template is none of the above, just return it as is

@@ -1,6 +1,10 @@
 (ns cljcastr.template-test
-  (:require [clojure.test :refer [deftest is testing]]
-            [cljcastr.template :as template]))
+  (:require [babashka.fs :as fs]
+            [cljcastr.template :as template]
+            [cljcastr.test-utils :as test-utils]
+            [clojure.test :refer [deftest is testing use-fixtures]]))
+
+(use-fixtures :each test-utils/test-dir-fixture)
 
 (deftest has-template-var?-test
   (testing "happy path"
@@ -14,6 +18,10 @@
                                           :d {:e "f"}})))))
 
 (deftest expand-template-test
+  (testing "arity 1"
+    (is (= {:a "foobar", :b "foo"}
+           (template/expand-template {:a "{{b}}bar", :b "foo"}))))
+
   (testing "arity 2"
     (is (= "foo")
         (template/expand-template "foo"
@@ -44,9 +52,18 @@
                                       :b {:c "{{bar}}"
                                           :d "e"}}
                                      {:foo "stuff", :bar "things"}))))
-  (testing "arity 1"
-    (is (= {:a "foobar", :b "foo"}
-           (template/expand-template {:a "{{b}}bar", :b "foo"})))))
+
+  (testing "expand template from file"
+    (test-utils/with-dirs [templates-dir]
+      (fs/create-dirs templates-dir)
+      (spit (fs/file templates-dir "foo.html")
+            "Some {{foo}} and also {{bar}}.")
+      (is (= {:content "Some stuff and also things."}
+             (template/expand-template
+              {:cljcastr.template/content "{{templates-dir}}/foo.html"}
+              {:templates-dir templates-dir
+               :foo "stuff"
+               :bar "things"}))))))
 
 (deftest expand-context-test
 
@@ -116,19 +133,3 @@
                                        :d "{{f}}"}
                                       {:e "from opts"
                                        :f "deep {{e}}"}))))))
-
-#_(defn render-tree [data opts]
-    (cond
-      (string? data) (selmer/render data opts)
-      (vector? data) (->> data
-                          (map #(render-tree % opts))
-                          vec)
-      (sequential? data) (->> data
-                              (map #(render-tree % opts)))
-      (set? data) (->> data
-                       (map #(render-tree % opts))
-                       set)
-      (map? data) (->> data
-                       (map (fn [[k v]] [k (render-tree v opts)]))
-                       (into {}))
-      :else data))
