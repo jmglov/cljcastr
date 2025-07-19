@@ -160,11 +160,12 @@
            (spit tgt-filename content)))))))
 
 (defn publish-aws [opts]
-  (let [{:keys [website-bucket out-dir distribution-id dryrun]
+  (let [{:keys [website-bucket out-dir distribution-id]
          :as opts} (merge opts
                           (cli/parse-opts *command-line-args*))
+        dryrun? (or (:dryrun opts) (:dry-run opts))
         sync-cmd (concat ["aws s3 sync"]
-                         (when dryrun ["--dryrun"])
+                         (when dryrun? ["--dryrun"])
                          [(format "%s/" out-dir)
                           (format "s3://%s/" website-bucket)])
         paths-re (re-pattern (format "^[(]dryrun[)] upload: %s(/\\S+) to .+$"
@@ -184,7 +185,7 @@
       (println "Skipping invalidation because nothing was synced")
       (do
         (apply println invalidate-cmd)
-        (when-not dryrun
+        (when-not dryrun?
           (apply shell invalidate-cmd))))))
 
 (defn http-server [opts]
