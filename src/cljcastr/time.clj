@@ -13,17 +13,22 @@
 
 (defn ts->sec [ts]
   (when ts
-    (let [ts (if (re-matches #"^-?[0-9]{2}:[0-9]{2}:[0-9]{2}.*$" ts) ts (format "00:%s" ts))
-          ts (if (re-matches #"^.+[.]\d+$" ts) ts (str ts ".0"))
+    (let [ts (if (re-matches #"^-[0-9]{2}:[0-9]{2}(?:[.][0-9]+)?$" ts)
+               (format "-00:%s" (str/replace ts #"-" ""))
+               ts)
+          ts (if (re-matches #"^[0-9]{2}:[0-9]{2}(?:[.][0-9]+)?$" ts)
+               (format "00:%s" ts)
+               ts)
+          is-neg? (str/starts-with? ts "-")
           [hh mm ss frac-ss]
           (->> ts
-               (re-matches #"(-?\d+):(\d+):(\d+)([.]\d+)")
+               (re-matches #"(-?\d+):(\d+):(\d+)([.]\d+)?")
                (drop 1))
           [hh mm ss] (map #(Integer/parseInt %) [hh mm ss])
-          frac-ss (Float/parseFloat (str "0" frac-ss))]
+          frac-ss (Float/parseFloat (str "0" (or frac-ss ".0")))]
       (-> (Math/abs hh)
           (* 3600)
           (+ (* mm 60))
           (+ ss)
           (+ frac-ss)
-          (* (if (neg? hh) -1 1))))))
+          (* (if is-neg? -1 1))))))

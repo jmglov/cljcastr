@@ -30,4 +30,8 @@
            (->> (time/ts->sec "12:34.56")
                 (format "%.2f")))))
 
+  (testing "negative timestamp"
+    (is (= -46.0
+           (time/ts->sec "-00:46"))))
+
   )
