@@ -12,16 +12,27 @@
    (let [episode-name (fs/file-name episode-dir)]
      (fs/file episode-dir (format "%s_transcription.otr" episode-name)))))
 
+(defn- line->paragraph [p-text]
+  (let [[_ ts speaker text]
+        (->> p-text
+             (re-seq #"^<span.+class=\"timestamp\".*>(.+)</span>.*<b>\s*(\S.*)\s*</b>:\s*([^<]+)<.+$")
+             first)
+
+        [ts text]
+        (if text
+          [ts text]
+          (->> p-text
+               (re-seq #"^<span.+class=\"timestamp\".*>(.+)</span>\s*([^<]+)<.+$")
+               first
+               (drop 1)))]
+    (->map ts speaker text)))
+
 (defn transcript->paragraphs [transcript]
   (->> (-> (json/parse-string transcript keyword)
            :text
            (str/split #"<p>"))
        (remove empty?)
-       (map (fn [p-text]
-              (let [[_ ts] (first (re-seq #">([:.0-9]+)</span>" p-text))
-                    [_ speaker text] (first (re-seq #"^(?:<p>|.+</span>)(?:<b>)?([^:<]+)(?:</b>)?: (.+)</p>" p-text))
-                    [speaker text] (if text [speaker text] ["" speaker])]
-                (->map ts speaker text))))))
+       (map line->paragraph)))
 
 (defn paragraphs->transcript [paragraphs]
   (->> paragraphs
