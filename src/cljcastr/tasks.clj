@@ -19,7 +19,11 @@
    :templates-dir "templates"
    :css-file (fs/file "css" "main.css")
    :feed-file "feed.rss"
-   :index-file "index.html"})
+   :index-file "index.html"
+   :http-port 1341
+   :http-root "public"
+   :nrepl-port 1339
+   :websocket-port 1340})
 
 (defn load-edn [filename]
   (-> (slurp filename)
@@ -189,9 +193,8 @@
           (apply shell invalidate-cmd))))))
 
 (defn http-server [opts]
-  (let [{http-port :http-port, http-root :http-root
-         :or {http-port 1341 http-root "public"}}
-        (merge opts (cli/parse-opts *command-line-args*))
+  (let [{http-port :http-port, http-root :http-root}
+        (merge default-opts opts (cli/parse-opts *command-line-args*))
         http-port (->int http-port)]
     (println (format "Starting webserver on port %d with root %s"
                      http-port http-root))
@@ -205,9 +208,9 @@
 
 (defn browser-nrepl [opts]
   (let [{:keys [nrepl-port websocket-port]}
-        (merge opts (cli/parse-opts *command-line-args*))
-        nrepl-port (->int (or nrepl-port 1339))
-        websocket-port (->int (or websocket-port 1340))]
+        (merge default-opts opts (cli/parse-opts *command-line-args*))
+        nrepl-port (->int nrepl-port)
+        websocket-port (->int websocket-port)]
     (println (format "Starting nrepl server on port %d and websocket server on port %d"
                      nrepl-port websocket-port))
     (bp/start! (->map nrepl-port websocket-port))))
