@@ -3,6 +3,7 @@
             [babashka.fs :as fs]
             [babashka.http-server :as http]
             [babashka.process :as p]
+            [cljcastr.audio :as audio]
             [cljcastr.rss :as rss]
             [cljcastr.template :as template]
             [cljcastr.util :as util :refer [->int ->map]]
@@ -39,16 +40,6 @@
         (merge {:base-dir (str (fs/cwd))}
                (load-edn (fs/file dir filename))
                (cli/parse-opts *command-line-args*)))))
-
-(defn shell [& args]
-  (let [p (apply p/shell {:out :string
-                          :err :string
-                          :continue true}
-                 args)]
-    (println (:out p))
-    (when-not (zero? (:exit p))
-      (println (:err p)))
-    p))
 
 (defn render-file [filename opts]
   (selmer/render (slurp filename) opts))
@@ -174,7 +165,7 @@
                           (format "s3://%s/" website-bucket)])
         paths-re (re-pattern (format "^[(]dryrun[)] upload: %s(/\\S+) to .+$"
                                      out-dir))
-        paths (->> (apply shell (concat sync-cmd ["--dryrun"]))
+        paths (->> (apply util/shell (concat sync-cmd ["--dryrun"]))
                    :out
                    str/split-lines
                    (map #(str/replace % paths-re "$1"))
@@ -184,13 +175,13 @@
                                 "--paths"]
                                paths)]
     (apply println sync-cmd)
-    (apply shell sync-cmd)
+    (apply util/shell sync-cmd)
     (if (empty? paths)
       (println "Skipping invalidation because nothing was synced")
       (do
         (apply println invalidate-cmd)
         (when-not dryrun?
-          (apply shell invalidate-cmd))))))
+          (apply util/shell invalidate-cmd))))))
 
 (defn http-server [opts]
   (let [{http-port :http-port, http-root :http-root}
@@ -214,3 +205,31 @@
     (println (format "Starting nrepl server on port %d and websocket server on port %d"
                      nrepl-port websocket-port))
     (bp/start! (->map nrepl-port websocket-port))))
+
+(defn list-episode-audio-metadata
+  ([opts]
+   (list-episode-audio-metadata (fs/cwd) opts))
+  ([dir opts]
+   (list-episode-audio-metadata (fs/cwd) *default-podcast-config-filename* opts))
+  ([dir filename opts]
+   (let [{:keys [episodes]}
+         (load-config dir filename (merge {:base-dir (fs/cwd)}
+                                          default-opts
+                                          opts))]
+     (doseq [episode episodes]
+       (audio/list-id3-info opts (template/expand-context 5 episode opts))))))
+
+(defn write-episode-audio-metadata
+  ([opts]
+   (write-episode-audio-metadata (fs/cwd) opts))
+  ([dir opts]
+   (write-episode-audio-metadata dir *default-podcast-config-filename* opts))
+  ([dir filename opts]
+   (let [{:keys [seasons episodes]}
+         (load-config dir filename (merge {:base-dir (fs/cwd)}
+                                          default-opts
+                                          opts))
+         season-number (:season opts)
+         season (some #(= season-number (str (:number %))) seasons)]
+     (doseq [episode episodes]
+       (audio/set-id3-info opts season (template/expand-context 5 episode opts))))))
