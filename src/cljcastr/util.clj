@@ -1,5 +1,6 @@
 (ns cljcastr.util
   (:require [babashka.fs :as fs]
+            [babashka.process :as p]
             [clojure.string :as str]))
 
 (defmacro ->map [& ks]
@@ -30,6 +31,16 @@
   (let [base-path (format "%s/" (str base-path))
         filename (str filename)]
     (str/replace-first filename base-path "")))
+
+(defn shell [& args]
+  (let [p (apply p/shell {:out :string
+                          :err :string
+                          :continue true}
+                 args)]
+    (println (:out p))
+    (when-not (zero? (:exit p))
+      (println (:err p)))
+    p))
 
 (defn copy-modified!
   "Copies files from src-dir that have been modified more recently than dst-dir

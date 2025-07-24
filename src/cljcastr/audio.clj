@@ -2,6 +2,7 @@
   (:require [babashka.fs :as fs]
             [babashka.process :as p]
             [cheshire.core :as json]
+            [cljcastr.util :as util]
             [clojure.string :as str]))
 
 (defn mp3-duration [filename]
@@ -46,11 +47,31 @@
                     mp3-file]]
     (println (format "Converting %s -> %s" wav-file mp3-file))
     (apply println (map str ffmpeg-args))
-    (apply p/shell ffmpeg-args)
+    (apply util/shell ffmpeg-args)
     (println "Writing ID3 tag")
     (apply println id3v2-args)
-    (apply p/shell (map str id3v2-args))
+    (apply util/shell (map str id3v2-args))
     (assoc track
            :mp3-filename mp3-file
            :duration (mp3-duration mp3-file)
            :mp3-size (fs/size mp3-file))))
+
+(defn list-id3-info [{:keys [base-dir podcast] :as _opts}
+                     {:keys [slug audio-file number title] :as _episode}]
+  (let [file (fs/file base-dir slug audio-file)]
+    (util/shell "id3v2" "--list" file)))
+
+(defn set-id3-info [{:keys [base-dir podcast] :as _opts}
+                    season
+                    {:keys [slug audio-file number title] :as _episode}]
+  (let [file (fs/file base-dir slug audio-file)]
+    (when (fs/exists? file)
+      (util/shell "id3v2"
+                  "--artist" (:author podcast)
+                  "--album" (format "%s Season %d - %s"
+                                    (:title podcast) (:number season) (:title season))
+                  "--year" (str (:year season))
+                  "--genre" "Podcast"
+                  "--track" (str number)
+                  "--song" title
+                  file))))
