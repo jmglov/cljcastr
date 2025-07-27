@@ -16,7 +16,7 @@
        (partition-by empty?)
        (remove (comp empty? first))
        (map (fn [[ts speaker text]]
-              (let [[speaker text] (if text [speaker text] ["" speaker])]
+              (let [[speaker text] (if text [speaker text] [nil speaker])]
                 (->map ts speaker text))))))
 
 (defn paragraphs->transcript [paragraphs]
