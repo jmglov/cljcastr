@@ -6,6 +6,9 @@
             [cljcastr.audio :as audio]
             [cljcastr.rss :as rss]
             [cljcastr.template :as template]
+            [cljcastr.transcription :as transcription]
+            [cljcastr.transcription.otr :as otr]
+            [cljcastr.transcription.zencastr :as zencastr]
             [cljcastr.util :as util :refer [->int ->map]]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
@@ -205,6 +208,49 @@
     (println (format "Starting nrepl server on port %d and websocket server on port %d"
                      nrepl-port websocket-port))
     (bp/start! (->map nrepl-port websocket-port))))
+
+(defn fixup-transcript
+  ([opts]
+   (fixup-transcript (fs/cwd) opts))
+  ([dir opts]
+   (fixup-transcript dir *default-podcast-config-filename* opts))
+  ([dir filename opts]
+   (let [{:keys [infile outfile backup-file
+                 no-processing
+                 no-fixup-timestamps no-remove-fillers
+                 no-remove-active-listening no-join-speakers
+                 offset-ts start-at-ts] :as opts}
+         (load-config dir filename (merge {:base-dir (fs/cwd)}
+                                          default-opts
+                                          opts))
+         outfile (if outfile outfile infile)
+         offset-ts (or offset-ts (:episode-start-offset-ts opts))
+         opts (assoc opts :outfile outfile, :offset-ts offset-ts)
+         backup-file (or backup-file (format "%s.BAK" outfile))
+         parse-fn (transcription/parse-fn (str/replace infile #"[.]BAK$" ""))
+         generate-fn (transcription/generate-fn (str/replace outfile #"[.]BAK$" ""))
+         paragraphs (-> infile slurp parse-fn)
+         transform-fn (apply comp
+                             (if no-processing
+                               []
+                               (->> [(when-not no-fixup-timestamps
+                                       (partial transcription/fixup-timestamps opts))
+                                     (when-not no-remove-fillers
+                                       (partial transcription/remove-fillers opts))
+                                     (when-not no-remove-active-listening
+                                       (partial transcription/remove-active-listening opts))
+                                     (when-not no-join-speakers
+                                       (partial transcription/join-speakers opts))]
+                                    (remove nil?))))
+         _ (println (format "Reading file %s" infile))
+         transcript (->> paragraphs
+                         transform-fn
+                         generate-fn)]
+     (when (fs/exists? outfile)
+       (println (format "Writing backup file %s" backup-file))
+       (fs/copy outfile backup-file {:replace-existing true}))
+     (println (format "Writing file %s" outfile))
+     (spit outfile transcript))))
 
 (defn list-episode-audio-metadata
   ([opts]
