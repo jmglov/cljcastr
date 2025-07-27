@@ -13,8 +13,7 @@
 
   (testing "happy path"
     (is (= [{:text "And so forth, I think at least, about AI."}
-            {:text "Yeah, huh, badum, and so forth"}
-            {:text ""}]
+            {:text "Yeah, huh, badum, and so forth"}]
            (transcription/remove-fillers
             [{:text "Um, you know, and um so forth, I think at least, about um AI."}
              {:text "Yeah, huh, badum, and so forth"}

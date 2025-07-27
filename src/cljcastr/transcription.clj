@@ -89,8 +89,8 @@
         res))))
 
 (defn remove-paragraph-fillers [fillers text]
-  (let [{:keys [text matched]} (reduce remove-filler {:text text} fillers)]
-    text))
+  (->> (reduce remove-filler {:text text} fillers)
+       :text))
 
 (defn remove-fillers
   ([paragraphs]
@@ -99,7 +99,8 @@
    (->> paragraphs
         (map (fn [{:keys [text] :as paragraph}]
                (assoc paragraph :text
-                      (remove-paragraph-fillers fillers text)))))))
+                      (remove-paragraph-fillers fillers text))))
+        (remove (comp empty? :text)))))
 
 (defn remove-short-paragraphs
   ([paragraphs]
