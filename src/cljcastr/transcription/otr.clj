@@ -12,27 +12,53 @@
    (let [episode-name (fs/file-name episode-dir)]
      (fs/file episode-dir (format "%s_transcription.otr" episode-name)))))
 
-(defn- line->paragraph [p-text]
-  (let [[_ ts speaker text]
-        (->> p-text
-             (re-seq #"^<span.+class=\"timestamp\".*>(.+)</span>.*<b>\s*(\S.*)\s*</b>:\s*([^<]+)<.+$")
-             first)
+(defn- line->paragraph [input-line p-text]
+  (try
+    (let [input-line (inc input-line)
+          p-text (-> p-text
+                     str/trim
+                     (str/replace #"</p>$" "")
+                     (str/replace #"<br\s?/>" "")
+                     (str/replace #"<b>\s*</b>" "")
+                     (str/replace #"</?span>" ""))
 
-        [ts text]
-        (if text
-          [ts text]
+          ;; <span class="timestamp" data-timestamp="46.00">00:46</span><b>Foo Bar</b>: Stuff and things
+          [_ ts speaker text]
           (->> p-text
-               (re-seq #"^<span.+class=\"timestamp\".*>(.+)</span>\s*([^<]+)<.+$")
-               first
-               (drop 1)))]
-    (->map ts speaker text)))
+               (re-seq #"^.*<span.+class=\"timestamp\".*>([0-9:.]+)\s*<b>(.+)</b>\s*:(.+)$")
+               first)
+
+          ;; <span class="timestamp" data-timestamp="2.00">00:02</span>[Theme music starts]
+          [ts text]
+          (if text
+            [ts text]
+            (->> p-text
+                 (re-seq #"^.*<span.+class=\"timestamp\".*>([0-9:.]+)([^0-9].*)$")
+                 first
+                 (drop 1)))
+
+          ;; <b>Josh</b>: Ray, we need to talk about trust.
+          [speaker text]
+          (if text
+            [speaker text]
+            (->> p-text
+                 (re-seq #"^.*<b>(.+)</b>:(.+)$")
+                 first
+                 (drop 1)))
+
+          ts (or ts "99:99:99.999")
+          speaker (when speaker (str/trim speaker))
+          text (when text (str/trim text))]
+      (->map ts speaker text input-line))
+    (catch Exception e
+      (throw (ex-info (.getMessage e) {::line input-line, ::text p-text} e)))))
 
 (defn transcript->paragraphs [transcript]
   (->> (-> (json/parse-string transcript keyword)
            :text
            (str/split #"<p>"))
        (remove empty?)
-       (map line->paragraph)))
+       (map-indexed line->paragraph)))
 
 (defn paragraphs->transcript [paragraphs]
   (->> paragraphs
@@ -44,7 +70,8 @@
                                        (format "%s:%s:%s" hh mm ss)
                                        (format "%s:%s" mm ss))]
                           (format "<span class=\"timestamp\" data-timestamp=\"%.2f\">%s</span>"
-                                  (time/ts->sec ts) (time/sec->ts sec)))
+                                  (time/ts->sec ts)
+                                  (str/replace (time/sec->ts sec) #"[.][0-9]+$" "")))
                         "")
                       (if speaker (format "<b>%s</b>: " speaker) "")
                       text)))
