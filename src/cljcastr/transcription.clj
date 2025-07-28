@@ -95,7 +95,9 @@
 (defn remove-fillers
   ([paragraphs]
    (remove-fillers defaults paragraphs))
-  ([{:keys [fillers] :or {fillers (:fillers defaults)}} paragraphs]
+  ([{:keys [fillers] :or {fillers (:fillers defaults)} :as opts} paragraphs]
+   (util/debug opts (format "Removing fillers: %s"
+                            (str/join ", " fillers)))
    (->> paragraphs
         (map (fn [{:keys [text] :as paragraph}]
                (assoc paragraph :text
@@ -107,8 +109,11 @@
    (remove-short-paragraphs defaults paragraphs))
   ([{:keys [short-paragraph-max-chars]
      :or {short-paragraph-max-chars (:short-paragraph-max-chars defaults)}
-     :as _opts}
+     :as opts}
     paragraphs]
+   (util/debug opts
+               (format "Removing paragraphs with fewer than %s characters"
+                       short-paragraph-max-chars))
    (->> paragraphs
         (remove (fn [{:keys [text]}] (< (count text) short-paragraph-max-chars))))))
 
@@ -117,8 +122,11 @@
    (remove-active-listening defaults paragraphs))
   ([{:keys [active-listening-words]
      :or {active-listening-words (:active-listening-words defaults)}
-     :as _opts}
+     :as opts}
     paragraphs]
+   (util/debug opts
+               (format "Removing active listening paragraphs; words: %s"
+                       (str/join ", " active-listening-words)))
    (->> paragraphs
         (remove (fn [{:keys [text]}]
                   (->> text
@@ -129,7 +137,8 @@
 (defn join-speakers
   ([paragraphs]
    (join-speakers defaults paragraphs))
-  ([_opts paragraphs]
+  ([opts paragraphs]
+   (util/debug opts "Joining speakers")
    (->> paragraphs
         remove-active-listening
         (partition-by :speaker)
@@ -144,10 +153,13 @@
   ([{:keys [start-at-ts offset-ts]
      :or {start-at-ts (:start-at-ts defaults)
           offset-ts (:offset-ts defaults)}
-     :as _opts}
+     :as opts}
     paragraphs]
    (let [start-at-sec (or (time/ts->sec start-at-ts) 0)
          offset-sec (or (time/ts->sec offset-ts) 0)]
+     (util/debug opts
+                 (format "Fixup timestamps: starting at %s, offsetting %s seconds"
+                         start-at-ts offset-sec))
      (->> paragraphs
           (map (fn [{:keys [ts] :as p}]
                  (if ts
