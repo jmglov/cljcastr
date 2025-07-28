@@ -27,7 +27,12 @@
    :http-port 1341
    :http-root "public"
    :nrepl-port 1339
-   :websocket-port 1340})
+   :websocket-port 1340
+   :processing true
+   :fixup-timestamps true
+   :remove-fillers true
+   :remove-active-listening true
+   :join-speakers true})
 
 (defn load-edn [filename]
   (-> (slurp filename)
@@ -39,10 +44,15 @@
   ([dir filename]
    (load-config dir filename {}))
   ([dir filename opts]
-   (->> opts
-        (merge {:base-dir (str (fs/cwd))}
-               (load-edn (fs/file dir filename))
-               (cli/parse-opts *command-line-args*)))))
+   (let [cli-opts (cli/parse-opts *command-line-args*)
+         merged-opts (merge {:base-dir (str (fs/cwd))}
+                            (load-edn (fs/file dir filename))
+                            opts
+                            cli-opts)]
+     (util/debug merged-opts (format "Command line args: %s"
+                                     (str/join " " *command-line-args*)))
+     (util/debug merged-opts (format "Parsed opts: %s" (pr-str cli-opts)))
+     merged-opts)))
 
 (defn render-file [filename opts]
   (selmer/render (slurp filename) opts))
@@ -216,9 +226,9 @@
    (fixup-transcript dir *default-podcast-config-filename* opts))
   ([dir filename opts]
    (let [{:keys [infile outfile backup-file
-                 no-processing
-                 no-fixup-timestamps no-remove-fillers
-                 no-remove-active-listening no-join-speakers
+                 processing
+                 fixup-timestamps remove-fillers
+                 remove-active-listening join-speakers
                  offset-ts start-at-ts] :as opts}
          (load-config dir filename (merge {:base-dir (fs/cwd)}
                                           default-opts
@@ -231,17 +241,17 @@
          generate-fn (transcription/generate-fn (str/replace outfile #"[.]BAK$" ""))
          paragraphs (-> infile slurp parse-fn)
          transform-fn (apply comp
-                             (if no-processing
-                               []
-                               (->> [(when-not no-fixup-timestamps
+                             (if processing
+                               (->> [(when fixup-timestamps
                                        (partial transcription/fixup-timestamps opts))
-                                     (when-not no-remove-fillers
+                                     (when remove-fillers
                                        (partial transcription/remove-fillers opts))
-                                     (when-not no-remove-active-listening
+                                     (when remove-active-listening
                                        (partial transcription/remove-active-listening opts))
-                                     (when-not no-join-speakers
+                                     (when join-speakers
                                        (partial transcription/join-speakers opts))]
-                                    (remove nil?))))
+                                    (remove nil?))
+                               []))
          _ (println (format "Reading file %s" infile))
          transcript (->> paragraphs
                          transform-fn
