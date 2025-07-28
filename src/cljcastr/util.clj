@@ -8,6 +8,18 @@
   (zipmap (map keyword ks)
           ks))
 
+(defn debug [opts msg]
+  (when (:debug opts)
+    (println (format "[DEBUG] %s" msg))))
+
+(defn error
+  ([msg-or-exception]
+   (error {} msg-or-exception))
+  ([_opts msg-or-exception]
+   (if-let [msg (ex-message msg-or-exception)]
+     (println (format "[ERROR] %s: %s" msg (pr-str (ex-data msg-or-exception))))
+     (println (format "[ERROR] %s" msg-or-exception)))))
+
 (defn ->int
   "Attempts to convert x (assumed to be a string or number) to an integer. Throws
    the underlying exception on failure."
