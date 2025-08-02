@@ -69,6 +69,9 @@
                      "Ray\n"
                      "Yeah, I completely agree.\n"
                      "\n"
+                     "Josh\n"
+                     "Um\n"
+                     "\n"
                      "02:13\n"
                      "Josh\n"
                      "Ants. They love to use the ant thing, right?"))
@@ -79,6 +82,7 @@
                   :speaker "Josh",
                   :text "Ray, I think we should talk about some narratives and narrators."}
                  {:ts "00:52", :speaker "Ray", :text "Yeah, I completely agree."}
+                 {:speaker "Josh" :text "Um"}
                  {:ts "02:13",
                   :speaker "Josh",
                   :text "Ants. They love to use the ant thing, right?"}]

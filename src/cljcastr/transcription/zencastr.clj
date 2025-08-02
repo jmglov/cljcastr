@@ -22,9 +22,10 @@
 (defn paragraphs->transcript [paragraphs]
   (->> paragraphs
        (map (fn [{:keys [ts speaker text]}]
-              (->> (if (empty? speaker)
-                     [ts text "\n"]
-                     [ts speaker text "\n"])
+              (->> (concat (when ts [ts])
+                           (when speaker [speaker])
+                           [text]
+                           ["\n"])
                    (str/join "\n"))))
        str/join
        str/trimr))
