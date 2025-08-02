@@ -2,12 +2,40 @@
   (:require [clojure.test :refer [deftest is testing]]
             [cljcastr.transcription :as transcription]))
 
-(deftest transcript-type
+(deftest transcript-type-test
 
   (testing "happy path"
     (is (= :edn (transcription/transcript-type "foo.edn")))
     (is (= :otr (transcription/transcript-type "foo.otr")))
     (is (= :zencastr (transcription/transcript-type "foo.txt")))))
+
+(deftest paragraph->words-test
+
+  (testing "happy path"
+    (is (= [{:word "Well", :punctuation ","}
+            {:word "that", :punctuation nil}
+            {:word "doesn't", :punctuation nil}
+            {:word "really", :punctuation nil}
+            {:word "matter", :punctuation "."}
+            {:word "You", :punctuation nil}
+            {:word "see", :punctuation ":"}
+            {:word "stuff", :punctuation "!"}]
+           (transcription/paragraph->words
+            {:text "Well, that doesn't really matter. You see: stuff!"})))))
+
+(deftest words->text-test
+
+  (testing "happy path"
+    (is (= "Well, that doesn't really matter. You see: stuff!"
+           (transcription/words->text
+            [{:word "Well", :punctuation ","}
+             {:word "that", :punctuation nil}
+             {:word "doesn't", :punctuation nil}
+             {:word "really", :punctuation nil}
+             {:word "matter", :punctuation "."}
+             {:word "You", :punctuation nil}
+             {:word "see", :punctuation ":"}
+             {:word "stuff", :punctuation "!"}])))))
 
 (deftest remove-fillers-test
 
@@ -30,6 +58,19 @@
       (is (= [{:text "This is an assertion."}]
              (transcription/remove-fillers
               [{:text "This is an assertion, you know."}]))))
+
+  )
+
+(deftest remove-repeated-words-test
+
+  (testing "happy path"
+    (is (= [{:text "The difference is, that stuff."}
+            {:text "Where, things."}
+            {:text "So... that means that stuff and things."}]
+           (transcription/remove-repeated-words
+            [{:text "The the the difference is, is that stuff."}
+             {:text "Where, where. Where things."}
+             {:text "So... so that means that stuff and things."}]))))
 
   )
 

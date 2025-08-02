@@ -37,6 +37,22 @@
     "otr" :otr
     "txt" :zencastr))
 
+(defn paragraph->words [{:keys [text] :as paragraph}]
+  (->> (re-seq #"\S+" text)
+       (map (fn [match]
+              (let [[_ word punctuation] (re-matches #"^(.*\w)(\W+)$" match)]
+                {:word (or word match), :punctuation punctuation})))))
+
+(defn words->text [words]
+  (->> words
+       (reduce (fn [text {:keys [word punctuation]}]
+                 (format "%s%s%s%s"
+                         (if (empty? text) "" text)
+                         (if (empty? text) "" " ")
+                         word
+                         (or punctuation "")))
+               "")))
+
 (defn remove-filler-word
   [filler-words
    {:keys [text sentence-start? cand-words filler-index] :as acc}
@@ -103,6 +119,25 @@
                (assoc paragraph :text
                       (remove-paragraph-fillers fillers text))))
         (remove (comp empty? :text)))))
+
+(defn remove-repeated-words
+  ([paragraphs]
+   (remove-repeated-words defaults paragraphs))
+  ([opts paragraphs]
+   (util/debug opts "Removing repeated words")
+   (->> paragraphs
+        (map (fn [{:keys [text] :as paragraph}]
+               (assoc paragraph :text
+                      (->> paragraph
+                           paragraph->words
+                           (reduce (fn [acc {:keys [word punctuation] :as cur}]
+                                     (if (and (not-empty acc)
+                                              (= (str/lower-case word)
+                                                 (str/lower-case (:word (last acc)))))
+                                       acc
+                                       (conj acc cur)))
+                                   [])
+                           words->text)))))))
 
 (defn remove-short-paragraphs
   ([paragraphs]
