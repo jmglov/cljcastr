@@ -125,3 +125,28 @@
               :ts "00:20"}]))))
 
   )
+
+(deftest remove-timestamps-test
+
+  (testing "happy path"
+    (is (= [{:text "[Theme music starts]"}
+            {:speaker "a"
+             :text "Since the invention of the wheel..."}
+            {:speaker "a"
+             :text "B, we need to talk about stuff and also things."}
+            {:speaker "b"
+             :text "I reject the notion that stuff is important."}]
+           (transcription/remove-timestamps
+            {}
+            [{:text "[Theme music starts]"}
+             {:speaker "a"
+              :text "Since the invention of the wheel..."
+              :ts "00:02"}
+             {:speaker "a"
+              :text "B, we need to talk about stuff and also things."
+              :ts "00:47"}
+             {:speaker "b"
+              :text "I reject the notion that stuff is important."
+              :ts "00:51"}]))))
+
+  )

@@ -168,9 +168,19 @@
           (remove (fn [{:keys [sec]}]
                     (and sec (neg? sec))))
           (map (fn [{:keys [sec] :as p}]
-                 (-> p
-                     (assoc :ts (time/sec->ts (+ sec offset-sec)))
-                     (dissoc :sec))))))))
+                 (if sec
+                   (-> p
+                       (assoc :ts (time/sec->ts (+ sec offset-sec)))
+                       (dissoc :sec))
+                   p)))))))
+
+(defn remove-timestamps
+  ([paragraphs]
+   (remove-timestamps defaults paragraphs))
+  ([opts paragraphs]
+   (util/debug opts "Removing timestamps")
+   (->> paragraphs
+        (map #(dissoc % :ts)))))
 
 (defn parse-fn [filename]
   (case (transcript-type filename)
