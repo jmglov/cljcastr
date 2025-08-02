@@ -30,8 +30,10 @@
    :websocket-port 1340
    :processing true
    :fixup-timestamps true
+   :remove-timestamps false
    :remove-fillers true
    :remove-active-listening true
+   :remove-repeated-words true
    :join-speakers true})
 
 (defn load-edn [filename]
@@ -227,7 +229,8 @@
   ([dir filename opts]
    (let [{:keys [infile outfile backup-file
                  processing
-                 fixup-timestamps remove-fillers
+                 fixup-timestamps remove-timestamps
+                 remove-fillers remove-repeated-words
                  remove-active-listening join-speakers
                  offset-ts start-at-ts] :as opts}
          (load-config dir filename (merge {:base-dir (fs/cwd)}
@@ -246,10 +249,14 @@
                                        (partial transcription/fixup-timestamps opts))
                                      (when remove-fillers
                                        (partial transcription/remove-fillers opts))
+                                     (when remove-repeated-words
+                                       (partial transcription/remove-repeated-words opts))
                                      (when remove-active-listening
                                        (partial transcription/remove-active-listening opts))
                                      (when join-speakers
-                                       (partial transcription/join-speakers opts))]
+                                       (partial transcription/join-speakers opts))
+                                     (when remove-timestamps
+                                       (partial transcription/remove-timestamps opts))]
                                     (remove nil?))
                                []))
          _ (println (format "Reading file %s" infile))
