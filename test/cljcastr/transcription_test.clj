@@ -7,7 +7,12 @@
   (testing "happy path"
     (is (= :edn (transcription/transcript-type "foo.edn")))
     (is (= :otr (transcription/transcript-type "foo.otr")))
-    (is (= :zencastr (transcription/transcript-type "foo.txt")))))
+    (is (= :zencastr (transcription/transcript-type "foo.txt"))))
+
+  (testing "drop .BAK"
+    (is (= :edn (transcription/transcript-type "foo.edn.BAK")))
+    (is (= :otr (transcription/transcript-type "foo.otr.BAK")))
+    (is (= :zencastr (transcription/transcript-type "foo.txt.BAK")))))
 
 (deftest paragraph->words-test
 

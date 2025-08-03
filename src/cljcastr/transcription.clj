@@ -32,7 +32,7 @@
    :start-at-ts "00:00"})
 
 (defn transcript-type [filename]
-  (case (fs/extension filename)
+  (case (fs/extension (str/replace filename #"[.]BAK$" ""))
     "edn" :edn
     "otr" :otr
     "txt" :zencastr))
