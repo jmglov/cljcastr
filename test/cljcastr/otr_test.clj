@@ -84,4 +84,21 @@
                   :text "Things and stuff"}]
                 otr/paragraphs->transcript))))
 
+  (testing "HTML only"
+    (is (= (str "<p>"
+                "<span class=\"timestamp\" data-timestamp=\"0.56\">00:00</span>"
+                "<b>Foo Bar</b>: Stuff and things"
+                "</p>\n"
+                "<p>"
+                "<span class=\"timestamp\" data-timestamp=\"3.12\">00:03</span>"
+                "<b>Baz Blah</b>: Things and stuff"
+                "</p>")
+           (->> [{:ts "00:00.56"
+                  :speaker "Foo Bar"
+                  :text "Stuff and things"}
+                 {:ts "00:03.12"
+                  :speaker "Baz Blah"
+                  :text "Things and stuff"}]
+                (otr/paragraphs->transcript {:otr-html-only true})))))
+
   )

@@ -60,21 +60,28 @@
        (remove empty?)
        (map-indexed line->paragraph)))
 
-(defn paragraphs->transcript [paragraphs]
-  (->> paragraphs
-       (map (fn [{:keys [ts speaker text]}]
-              (format "<p>%s%s%s</p>"
-                      (if-let [sec (time/ts->sec ts)]
-                        (let [[hh mm ss] (str/split ts #":")
-                              str-ts (if (and (not= "00" hh) ss)
-                                       (format "%s:%s:%s" hh mm ss)
-                                       (format "%s:%s" mm ss))]
-                          (format "<span class=\"timestamp\" data-timestamp=\"%.2f\">%s</span>"
-                                  (time/ts->sec ts)
-                                  (str/replace (time/sec->ts sec) #"[.][0-9]+$" "")))
-                        "")
-                      (if speaker (format "<b>%s</b>: " speaker) "")
-                      text)))
-       (str/join "\n")
-       (assoc {} :text)
-       json/generate-string))
+(defn paragraphs->transcript
+  ([paragraphs]
+   (paragraphs->transcript {} paragraphs))
+  ([{:keys [otr-html-only] :as _opts} paragraphs]
+   (let [html
+         (->> paragraphs
+              (map (fn [{:keys [ts speaker text]}]
+                     (format "<p>%s%s%s</p>"
+                             (if-let [sec (time/ts->sec ts)]
+                               (let [[hh mm ss] (str/split ts #":")
+                                     str-ts (if (and (not= "00" hh) ss)
+                                              (format "%s:%s:%s" hh mm ss)
+                                              (format "%s:%s" mm ss))]
+                                 (format "<span class=\"timestamp\" data-timestamp=\"%.2f\">%s</span>"
+                                         (time/ts->sec ts)
+                                         (str/replace (time/sec->ts sec) #"[.][0-9]+$" "")))
+                               "")
+                             (if speaker (format "<b>%s</b>: " speaker) "")
+                             text)))
+              (str/join "\n"))]
+     (if otr-html-only
+       html
+       (->> html
+            (assoc {} :text)
+            json/generate-string)))))
