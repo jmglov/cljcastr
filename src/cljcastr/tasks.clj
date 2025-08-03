@@ -46,11 +46,13 @@
   ([dir filename]
    (load-config dir filename {}))
   ([dir filename opts]
-   (let [cli-opts (cli/parse-opts *command-line-args*)
+   (let [cli-args (cli/parse-args *command-line-args*)
+         cli-opts (:opts cli-args)
          merged-opts (merge {:base-dir (str (fs/cwd))}
                             (load-edn (fs/file dir filename))
                             opts
-                            cli-opts)]
+                            cli-opts
+                            {::args (:args cli-args)})]
      (util/debug merged-opts (format "Command line args: %s"
                                      (str/join " " *command-line-args*)))
      (util/debug merged-opts (format "Parsed opts: %s" (pr-str cli-opts)))
@@ -268,6 +270,40 @@
        (fs/copy outfile backup-file {:replace-existing true}))
      (println (format "Writing file %s" outfile))
      (spit outfile transcript))))
+
+(defn diff-transcripts
+  ([opts]
+   (diff-transcripts (fs/cwd) opts))
+  ([dir opts]
+   (diff-transcripts (fs/cwd) *default-podcast-config-filename* opts))
+  ([dir filename opts]
+   (let [{:keys [::args] :as opts}
+         (load-config dir filename (merge {:base-dir (fs/cwd)}
+                                          default-opts
+                                          opts))
+         [a-file b-file] args
+         a-type (transcription/transcript-type a-file)
+         b-type (transcription/transcript-type b-file)
+         _ (when-not (= a-type b-type)
+             (throw (ex-info "Cannot diff transcripts with different types"
+                             {::a-type a-type, ::b-type b-type})))
+         parse-fn (transcription/parse-fn a-file)
+         generate-fn (transcription/generate-fn a-file)
+         generate-opts (merge opts
+                              (case a-type
+                                :otr {:otr-html-only true}
+                                {}))
+         a-paragraphs (->> (slurp a-file)
+                             parse-fn)
+         b-paragraphs (->> (slurp b-file)
+                             parse-fn)]
+     (println (format "diff -u %s %s" a-file b-file))
+     (fs/with-temp-dir [dir]
+       (let [a (fs/file dir (fs/file-name a-file))
+             b (fs/file dir (fs/file-name b-file))]
+         (spit a (generate-fn generate-opts a-paragraphs))
+         (spit b (generate-fn generate-opts b-paragraphs))
+         (util/shell "diff -u" a b))))))
 
 (defn list-episode-audio-metadata
   ([opts]
