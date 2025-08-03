@@ -1,0 +1,22 @@
+<!doctype html>
+<html class="no-js" lang="">
+
+<head>
+  <meta charset="utf-8">
+  <title>
+    Transcript - {{podcast.title}} Episode {{episode.number}} - {{episode.title}}
+  </title>
+</head>
+
+<body>
+  <h1>Transcript - {{podcast.title}} Episode {{episode.number}} - {{episode.title}}</h1>
+{% for paragraph in paragraphs %}
+  <p>
+    {% if paragraph.ts %}[{{paragraph.ts}}] {% endif %}
+    {% if paragraph.speaker %}<b>{{paragraph.speaker}}</b>: {% endif %}
+    {% if paragraph.text %}{{paragraph.text}}{% endif %}
+  </p>
+{% endfor %}
+</body>
+
+</html>
