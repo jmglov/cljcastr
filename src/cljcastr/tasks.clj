@@ -105,6 +105,8 @@
 
      (doseq [{:keys [filename path slug] :as episode}
              (->> (:episodes opts)
+                  (filter #(or (:include-previews opts)
+                               (not (:preview? %))))
                   (map #(template/expand-context 5 % opts)))
              filename (map episode [:audio-file :transcript-file])
              :let [src-filename (fs/file base-dir slug filename)
