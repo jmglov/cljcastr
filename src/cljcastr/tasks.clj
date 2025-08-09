@@ -134,11 +134,13 @@
        (println (format "Writing %s" (util/relative-filename out-dir css-out-file)))
        (fs/create-dirs (fs/parent css-out-file))
        (spit css-out-file css-contents))
-     (println "Writing RSS feed:"
-              (util/relative-filename out-dir feed-file))
 
-     (->> (rss/podcast-feed opts)
-          (spit feed-file))
+     (let [feed-contents (rss/podcast-feed opts)]
+       (when-not (and (fs/exists? feed-file)
+                      (= feed-contents (slurp feed-file)))
+         (println "Writing RSS feed:"
+                  (util/relative-filename out-dir feed-file))
+         (spit feed-file feed-contents)))
 
      (doseq [{:keys [filename src-filename tgt-filename]} cljs-files]
        (when (util/modified-since? filename tgt-filename)
