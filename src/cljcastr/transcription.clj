@@ -163,11 +163,19 @@
                (format "Removing active listening paragraphs; words: %s"
                        (str/join ", " active-listening-words)))
    (->> paragraphs
-        (remove (fn [{:keys [text]}]
-                  (->> text
-                       (re-seq #"\w+")
-                       (map str/lower-case)
-                       (every? active-listening-words)))))))
+        (map-indexed (fn [i {:keys [text] :as paragraph}]
+                       (try
+                         (when-not (or (nil? text)
+                                       (->> text
+                                            (re-seq #"\w+")
+                                            (map str/lower-case)
+                                            (every? active-listening-words)))
+                           paragraph)
+                         (catch Exception e
+                           (throw (ex-info (ex-message e)
+                                           {::paragraph-number i
+                                            ::paragraph paragraph}))))))
+        (remove nil?))))
 
 (defn join-speakers
   ([paragraphs]
