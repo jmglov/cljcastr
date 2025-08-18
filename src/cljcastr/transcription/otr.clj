@@ -53,12 +53,15 @@
     (catch Exception e
       (throw (ex-info (.getMessage e) {::line input-line, ::text p-text} e)))))
 
-(defn transcript->paragraphs [transcript]
-  (->> (-> (json/parse-string transcript keyword)
-           :text
-           (str/split #"<p>"))
-       (remove empty?)
-       (map-indexed line->paragraph)))
+(defn transcript->paragraphs
+  ([transcript]
+   (transcript->paragraphs {} transcript))
+  ([_opts transcript]
+   (->> (-> (json/parse-string transcript keyword)
+            :text
+            (str/split #"<p>"))
+        (remove empty?)
+        (map-indexed line->paragraph))))
 
 (defn paragraphs->transcript
   ([paragraphs]

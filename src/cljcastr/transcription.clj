@@ -2,6 +2,7 @@
   (:require [babashka.fs :as fs]
             [cljcastr.time :as time]
             [cljcastr.transcription.edn :as edn]
+            [cljcastr.transcription.html :as html]
             [cljcastr.transcription.otr :as otr]
             [cljcastr.transcription.zencastr :as zencastr]
             [cljcastr.util :as util :refer [->map]]
@@ -34,6 +35,7 @@
 (defn transcript-type [filename]
   (case (fs/extension (str/replace filename #"[.]BAK$" ""))
     "edn" :edn
+    "html" :html
     "otr" :otr
     "txt" :zencastr))
 
@@ -228,11 +230,13 @@
 (defn parse-fn [filename]
   (case (transcript-type filename)
     :edn edn/transcript->paragraphs
+    :html html/transcript->paragraphs
     :otr otr/transcript->paragraphs
     :zencastr zencastr/transcript->paragraphs))
 
 (defn generate-fn [filename]
   (case (transcript-type filename)
     :edn edn/paragraphs->transcript
+    :html html/paragraphs->transcript
     :otr otr/paragraphs->transcript
     :zencastr zencastr/paragraphs->transcript))

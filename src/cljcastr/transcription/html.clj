@@ -13,12 +13,25 @@
 (defn paragraphs->transcript
   ([paragraphs]
    (paragraphs->transcript {} paragraphs))
-  ([{:keys [html-transcript-file] :as opts} paragraphs]
+  ([{:keys [html-transcript-file episodes season-num episode-num] :as opts}
+    paragraphs]
    (let [html-transcript-file (or html-transcript-file
-                                  (io/resource "transcript.html"))]
+                                  (io/resource "transcript.html"))
+         season-num (or season-num 1)
+         episode (when episode-num
+                   (some (fn [{:keys [season number] :as episode}]
+                           (and (= season-num season)
+                                (= episode-num number)
+                                episode))
+                         episodes))]
      (selmer/render (slurp html-transcript-file)
-                    (assoc opts :paragraphs paragraphs)))))
+                    (assoc opts
+                           :paragraphs paragraphs
+                           :episode episode)))))
 
-(defn transcript->paragraphs [html]
-  (throw (UnsupportedOperationException.
-          "transcript->paragraphs not yet implemented")))
+(defn transcript->paragraphs
+  ([html]
+   (transcript->paragraphs {} html))
+  ([opts html]
+   (throw (UnsupportedOperationException.
+           "transcript->paragraphs not yet implemented"))))

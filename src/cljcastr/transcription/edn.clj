@@ -20,7 +20,10 @@
           (assoc {} :transcript)
           pprint))))
 
-(defn transcript->paragraphs [edn]
-  (->> edn
-       edn/read-string
-       :transcript))
+(defn transcript->paragraphs
+  ([edn]
+   (transcript->paragraphs {} edn))
+  ([_opts edn]
+   (->> edn
+        edn/read-string
+        :transcript)))

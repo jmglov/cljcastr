@@ -29,7 +29,7 @@
    :nrepl-port 1339
    :websocket-port 1340
    :processing true
-   :fixup-timestamps true
+   :fixup-timestamps false
    :remove-timestamps false
    :remove-fillers true
    :remove-active-listening true
@@ -252,23 +252,23 @@
          transform-fn (apply comp
                              (if processing
                                (->> [(when fixup-timestamps
-                                       (partial transcription/fixup-timestamps opts))
+                                       transcription/fixup-timestamps)
                                      (when remove-fillers
-                                       (partial transcription/remove-fillers opts))
+                                       transcription/remove-fillers)
                                      (when remove-repeated-words
-                                       (partial transcription/remove-repeated-words opts))
+                                       transcription/remove-repeated-words)
                                      (when remove-active-listening
-                                       (partial transcription/remove-active-listening opts))
+                                       transcription/remove-active-listening)
                                      (when join-speakers
-                                       (partial transcription/join-speakers opts))
+                                       transcription/join-speakers)
                                      (when remove-timestamps
-                                       (partial transcription/remove-timestamps opts))]
+                                       transcription/remove-timestamps)]
                                     (remove nil?))
-                               []))
+                               [(fn [_opts output] output)]))
          _ (println (format "Reading file %s" infile))
          transcript (->> paragraphs
-                         transform-fn
-                         generate-fn)]
+                         (transform-fn opts)
+                         (generate-fn opts))]
      (when (fs/exists? outfile)
        (println (format "Writing backup file %s" backup-file))
        (fs/copy outfile backup-file {:replace-existing true}))
