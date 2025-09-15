@@ -306,18 +306,21 @@
                   {:keys [episodes] :as podcast}]
   (let [episode-numbers (->> episodes
                              (map :number)
-                             sort)]
-    {:opts (merge default-opts opts)
-     :podcast podcast
-     :paused? true
-     :shuffling? false
-     :repeating? false
-     :repeating-all? false
-     :active-episode (if single-episode
-                       (->int single-episode)
-                       (first episode-numbers))
-     :prev-episodes (list)
-     :next-episodes (rest episode-numbers)}))
+                             sort)
+        state
+        {:opts (merge default-opts opts)
+         :podcast podcast
+         :paused? true
+         :shuffling? false
+         :repeating? false
+         :repeating-all? false
+         :active-episode (if single-episode
+                           (->int single-episode)
+                           (first episode-numbers))
+         :prev-episodes (list)
+         :next-episodes (rest episode-numbers)}]
+    (log "State initialised" state)
+    state))
 
 (defn get-episode-index [{:keys [active-episode podcast]}]
   (->> (:episodes podcast)
@@ -407,7 +410,7 @@
 (defn ->episode [{:keys [artist] :as podcast} item-el]
   {:artist artist
    :title (xml-get item-el "title")
-   :number (-> (xml-get item-el "episode") ->int)
+   :number (-> (xml-get item-el "episode") (or (xml-get item-el "bonusNumber")) ->int)
    :description (xml-get item-el "description")
    :transcript-url (xml-get item-el "transcriptUrl")
    :src (xml-get-attr item-el "enclosure" "url")})
@@ -888,7 +891,8 @@
     (.addEventListener audio "timeupdate"
                        (audio-event-handler (partial display-timeline! opts)))
     (.addEventListener canvas "mouseup" seek-handler)
-    (.addEventListener canvas "mouseleave" seek-handler)))
+    (.addEventListener canvas "mouseleave" seek-handler)
+    (log "Audio initialised")))
 
 (defn episode->span [{:keys [number title] :as episode}]
   (let [span (js/document.createElement "span")]

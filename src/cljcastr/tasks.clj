@@ -149,7 +149,7 @@
          (fs/copy filename tgt-filename {:replace-existing true})))
 
      (let [template (slurp episode-template)
-           opts (rss/update-episodes opts)]
+           opts (rss/update-episodes (assoc opts :bonus-numbers? true))]
        (doseq [{:keys [path] :as episode} (:episodes opts)
                :let [filename (fs/file out-dir path "index.html")
                      opts (assoc opts :episode episode)

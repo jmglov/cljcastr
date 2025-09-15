@@ -27,9 +27,13 @@
       (str/replace #">\n\s*" ">")
       (str/replace #"\n\s+" " ")))
 
-(defn update-episode [{:keys [base-dir out-dir description-epilogue] :as opts}
-                      episode]
-  (let [{:keys [audio-file description path] :as episode}
+(defn update-episode [{:keys [base-dir out-dir
+                              description-epilogue bonus-numbers?] :as opts}
+                      {:keys [bonus-number] :as episode}]
+  (let [episode (if (and bonus-numbers? bonus-number)
+                  (assoc episode :number bonus-number)
+                  episode)
+        {:keys [audio-file description path] :as episode}
         (template/expand-context 5 episode opts)
         filename (fs/file base-dir out-dir path audio-file)
         description (->> [description description-epilogue]
@@ -45,8 +49,8 @@
 (defn update-episodes [{:keys [podcast] :as opts}]
   (let [sort-fn (fn [ep1 ep2]
                   (if (= (:type podcast) "Serial")
-                    (compare (or (:number ep1) 0)
-                             (or (:number ep2) 0))
+                    (compare (or (:number ep1) (:bonus-number ep1) 0)
+                             (or (:number ep2) (:bonus-number ep2) 0))
                     (compare (or (:number ep2) 0)
                              (or (:number ep1) 0))))]
     (-> opts
