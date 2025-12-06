@@ -1,7 +1,21 @@
 {:paths ["src" "resources"]
  :deps {io.github.jmglov/cljcastr {:local/root "."}}
  :tasks
- {
+ {:requires ([cljcastr.tasks :as tasks])
+  :init (def opts
+          {:http-root "public"
+           :http-port 8081
+           :nrepl-port 1339
+           :websocket-port 1340})
+
+  http-server (tasks/http-server opts)
+
+  browser-nrepl (tasks/browser-nrepl opts)
+
+  -dev {:depends [http-server browser-nrepl]}
+
+  dev {:task (do (run '-dev {:parallel true})
+                 (deref (promise)))}
 
   test {:doc "Run tests"
         :task (apply clojure "-M:test" *command-line-args*)}
