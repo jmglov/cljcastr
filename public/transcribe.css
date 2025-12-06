@@ -1,0 +1,21 @@
+#controls {
+  padding: 5px;
+}
+
+#textbox {
+  margin: 5px;
+  outline: solid thin;
+  padding: 5px;
+}
+
+.transcript-ts {
+  color: blue;
+  font-weight: bold;
+  margin-right: 0.5em;
+  text-decoration: underline;
+}
+
+.transcript-speaker {
+  font-weight: bold;
+  margin-right: 0.5em;
+}

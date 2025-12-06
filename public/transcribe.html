@@ -1,0 +1,48 @@
+<!doctype html>
+<html class="no-js" lang="">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>cljcastr</title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="transcribe.css">
+
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+    <meta name="msapplication-TileColor" content="#da532c">
+    <meta name="theme-color" content="#ffffff">
+
+    <script src="https://cdn.jsdelivr.net/npm/scittle@0.7.28/dist/scittle.js" type="application/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/scittle@0.7.28/dist/scittle.promesa.js" type="application/javascript"></script>
+    <script>var SCITTLE_NREPL_WEBSOCKET_PORT = 1340;</script>
+    <script>var CLJCASTR_DEBUG = true;</script>
+    <script src="https://cdn.jsdelivr.net/npm/scittle@0.7.28/dist/scittle.nrepl.js" type="application/javascript"></script>
+    <script type="application/x-scittle" src="dom.cljs"></script>
+    <script type="application/x-scittle" src="transcribe.cljs"></script>
+</head>
+
+<body>
+
+  <div id="container">
+
+    <h1>cljcastr transcribe</h1>
+
+    <div id="controls">
+      <label for="import">Import transcript</label>
+      <input id="import" type="file" />
+      <button id="export" type="button" value="Export">Export</button>
+    </div>
+
+    <div id="textbox" contenteditable="true">
+    </div>
+
+  </div>
+
+</body>
+    
+</html>
