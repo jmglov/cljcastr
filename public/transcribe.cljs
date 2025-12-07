@@ -82,26 +82,45 @@
                 v (.-textContent span-el)]]
     (save-key! k v)))
 
+(defn load-filename []
+  (load-key "transcript-filename"))
+
+(defn save-filename! [filename]
+  (save-key! "transcript-filename" filename))
+
 (defn load-paragraph [i]
   (log :debug "Loading paragraph" i "from local storage")
   {:ts (load-key (str "transcript-p-" i "-ts"))
    :speaker (load-key (str "transcript-p-" i "-speaker"))
    :text (load-key (str "transcript-p-" i "-text"))})
 
-(defn display-transcript! [target-el transcript]
-  (doseq [p (transcript->elements transcript)]
-    (.appendChild target-el p)))
-
-(defn restore-transcript! [target-el]
+(defn load-transcript []
   (let [num-paragraphs (load-num-paragraphs)]
     (when (pos-int? num-paragraphs)
       (log :info "Loading transcript from local storage; restoring"
            num-paragraphs "paragraphs")
       (->> (range num-paragraphs)
-           (map load-paragraph)
-           (display-transcript! target-el)))))
+           (map load-paragraph)))))
 
-(defn import-file! [target-el event]
+(defn display-transcript! [target-el transcript]
+  (doseq [p (transcript->elements transcript)]
+    (.appendChild target-el p)))
+
+(defn restore-transcript! [target-el]
+  (display-transcript! target-el (load-transcript)))
+
+(defn save-edn! [filename data]
+  (let [a (dom/create-el "a")
+        blob (js/Blob. [(pr-str data)] (clj->js {:type "application/edn"}))]
+    (set! (.-href a) (js/URL.createObjectURL blob))
+    (set! (.-download a) filename)
+    (.click a)))
+
+(defn export-transcript! []
+  (save-edn! (or (load-filename) "transcript.edn")
+             {:transcript (vec (load-transcript))}))
+
+(defn import-file! [target-el filename event]
   (let [contents (-> event .-target .-result)
         transcript (read-transcript contents)]
     (log :debug "Loaded file:" contents)
@@ -110,14 +129,15 @@
     (clear-storage!)
     (let [children (.-childNodes target-el)]
       (doseq [p children]
-        (save-paragraph! p))
-      (save-num-paragraphs! (count transcript)))))
+        (save-paragraph! p)))
+    (save-num-paragraphs! (count transcript))
+    (save-filename! filename)))
 
 (defn read-file! [target-el event]
   (log :debug "File selected:" event)
   (let [file (-> event .-target .-files first)
         reader (js/FileReader.)]
-    (set! (.-onload reader) (partial import-file! target-el))
+    (set! (.-onload reader) (partial import-file! target-el (.-name file)))
     (.readAsText reader file)))
 
 (defn set-paragraph-id! [p i]
@@ -158,6 +178,8 @@
     (dom/clear-listeners! state)
     (dom/add-listener! state "#import" "change"
                        (partial read-file! transcript-el))
+    (dom/add-listener! state "#export" "click"
+                       export-transcript!)
     (dom/add-listener! state "#textbox" "input"
                        handle-input!)
     (restore-transcript! transcript-el)))
