@@ -18,9 +18,19 @@
         str/split-lines
         (partition-by empty?)
         (remove (comp empty? first))
-        (map (fn [[ts speaker text]]
-               (let [[speaker text] (if text [speaker text] [nil speaker])]
-                 (->map ts speaker text)))))))
+        (map (fn [[line1 line2 line3 :as lines]]
+               (cond
+                 (= (count lines) 3)
+                 {:ts line1, :speaker line2, :text line3}
+
+                 (re-matches #"(\d+:)?(\d{2}:)(\d{2})([.]\d+)?" line1)
+                 {:ts line1, :text line2}
+
+                 (= (count lines) 2)
+                 {:speaker line1, :text line2}
+
+                 :else
+                 {:text line1}))))))
 
 (defn paragraphs->transcript
   ([paragraphs]
