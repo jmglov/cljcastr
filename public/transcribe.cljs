@@ -43,14 +43,14 @@
       (set! (.-innerText el) v)
       el)))
 
+(defn create-transcript-spans [i paragraph]
+  (->> [:ts :speaker :text]
+       (map (fn [k] (create-transcript-span i [k (get paragraph k)])))
+       (remove nil?)))
+
 (defn create-transcript-p [i paragraph]
-  (let [p (dom/create-el "p" {:id (str "transcript-p-" i)})
-        children
-        (->> [:ts :speaker :text]
-             (map (fn [k] (create-transcript-span i [k (get paragraph k)])))
-             (remove nil?))]
-    (doseq [child children]
-      (.appendChild p child))
+  (let [p (dom/create-el "p" {:id (str "transcript-p-" i)})]
+    (dom/set-children! p (create-transcript-spans i paragraph))
     p))
 
 (defn transcript->elements [transcript]
@@ -65,15 +65,41 @@
   (-> (.-localStorage js/window)
       (.setItem k v)))
 
+(defn load-num-paragraphs []
+  (-> (load-key "transcript-num-paragraphs")
+      js/parseInt))
+
+(defn save-num-paragraphs! [n]
+  (save-key! "transcript-num-paragraphs" (str n)))
+
+(defn inc-num-paragraphs! []
+  (let [n (load-num-paragraphs)]
+    (save-num-paragraphs! (inc n))))
+
 (defn save-paragraph! [p-el]
   (doseq [span-el (.-childNodes p-el)
           :let [k (.-id span-el)
                 v (.-textContent span-el)]]
     (save-key! k v)))
 
+(defn load-paragraph [i]
+  (log :debug "Loading paragraph" i "from local storage")
+  {:ts (load-key (str "transcript-p-" i "-ts"))
+   :speaker (load-key (str "transcript-p-" i "-speaker"))
+   :text (load-key (str "transcript-p-" i "-text"))})
+
 (defn display-transcript! [target-el transcript]
   (doseq [p (transcript->elements transcript)]
     (.appendChild target-el p)))
+
+(defn restore-transcript! [target-el]
+  (let [num-paragraphs (load-num-paragraphs)]
+    (when (pos-int? num-paragraphs)
+      (log :info "Loading transcript from local storage; restoring"
+           num-paragraphs "paragraphs")
+      (->> (range num-paragraphs)
+           (map load-paragraph)
+           (display-transcript! target-el)))))
 
 (defn import-file! [target-el event]
   (let [contents (-> event .-target .-result)
@@ -85,7 +111,7 @@
     (let [children (.-childNodes target-el)]
       (doseq [p children]
         (save-paragraph! p))
-      (save-key! "transcript-num-paragraphs" (.-length children)))))
+      (save-num-paragraphs! (count transcript)))))
 
 (defn read-file! [target-el event]
   (log :debug "File selected:" event)
@@ -94,39 +120,38 @@
     (set! (.-onload reader) (partial import-file! target-el))
     (.readAsText reader file)))
 
+(defn set-paragraph-id! [p i]
+  (let [p-id (str "transcript-p-" i)]
+    (log :debug "Updating id of paragraph from" (.-id p) "to" p-id)
+    (set! (.-id p) p-id)
+    (doseq [child (.-childNodes p)]
+      (let [id (str/replace (.-id child) #"\d+" (str i))]
+        (log :debug "Updating id of child from" (.-id child) "to" id)
+        (set! (.-id child) id)))
+    (save-paragraph! p)))
+
+(defn insert-paragraph! [p]
+  (let [i (re-find #"\d+$" (.-id p))]
+    (if (not i)
+      (log :error "Could not parse paragraph number from element:" p)
+      (let [i (js/parseInt i)]
+        (dom/set-children! p (create-transcript-spans i {:ts "12:34:56", :text ""}))
+        (loop [p p
+               i (inc i)]
+          (when p
+            (set-paragraph-id! p i)
+            (recur (.-nextSibling p) (inc i))))
+        (inc-num-paragraphs!)))))
+
 (defn handle-input! [ev]
   (let [sel (.getSelection js/window)
         el (.-anchorNode sel)
         parent (.-parentNode el)
         input-type (.-inputType ev)]
-    (log :debug "Got input event type" input-type "on element"
-         (if (= "#text" (.-nodeName el)) parent el))
-    (comment
-      (log "Element:" el)
-      (log "Parent:" parent)
-      (log "Parent ID:" (.-id parent))
-      (log "Offset:" (.-focusOffset sel))
-      (log "Text:" (.-textContent el))
-      (log "Text before:" (subs (.-textContent el) 0 (.-focusOffset sel)))
-      (log "Text after:" (subs (.-textContent el) (.-focusOffset sel))))
+    (log :debug "Got input event type" input-type "on element" parent)
     (if (= "insertParagraph" input-type)
-      (log :debug "Insert paragraph here")
+      (insert-paragraph! parent)
       (save-key! (.-id parent) (.-textContent el)))))
-
-(defn load-paragraph [i]
-  (log :debug "Loading paragraph" i "from local storage")
-  {:ts (load-key (str "transcript-p-" i "-ts"))
-   :speaker (load-key (str "transcript-p-" i "-speaker"))
-   :text (load-key (str "transcript-p-" i "-text"))})
-
-(defn restore-transcript! [target-el]
-  (let [num-paragraphs (load-key "transcript-num-paragraphs")]
-    (when num-paragraphs
-      (log :info "Loading transcript from local storage; restoring"
-           num-paragraphs "paragraphs")
-      (->> (range num-paragraphs)
-           (map load-paragraph)
-           (display-transcript! target-el)))))
 
 (defn init-ui! []
   (let [transcript-el (dom/get-el "#textbox")]
@@ -140,5 +165,7 @@
 (comment
 
   (init-ui!)
+
+  (js/console.clear)
 
   )
