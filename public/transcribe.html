@@ -33,13 +33,16 @@
     <h1>cljcastr transcribe</h1>
 
     <div id="controls">
+      <label for="audio-file">Open audio</label>
+      <input id="audio-file" type="file" accept="audio/*" />
       <label for="import">Import transcript</label>
-      <input id="import" type="file" />
+      <input id="import" type="file" accept=".edn" />
       <button id="export" type="button" value="Export">Export</button>
     </div>
 
-    <div id="textbox" contenteditable="true">
-    </div>
+    <audio preload="auto"></audio>
+
+    <div id="textbox" contenteditable="true"></div>
 
   </div>
 

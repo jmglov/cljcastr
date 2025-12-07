@@ -82,11 +82,17 @@
                 v (.-textContent span-el)]]
     (save-key! k v)))
 
-(defn load-filename []
+(defn load-transcript-filename []
   (load-key "transcript-filename"))
 
-(defn save-filename! [filename]
+(defn save-transcript-filename! [filename]
   (save-key! "transcript-filename" filename))
+
+(defn load-audio-filename []
+  (load-key "audio-filename"))
+
+(defn save-audio-filename! [filename]
+  (save-key! "audio-filename" filename))
 
 (defn load-paragraph [i]
   (log :debug "Loading paragraph" i "from local storage")
@@ -117,10 +123,10 @@
     (.click a)))
 
 (defn export-transcript! []
-  (save-edn! (or (load-filename) "transcript.edn")
+  (save-edn! (or (load-transcript-filename) "transcript.edn")
              {:transcript (vec (load-transcript))}))
 
-(defn import-file! [target-el filename event]
+(defn import-transcript-file! [target-el filename event]
   (let [contents (-> event .-target .-result)
         transcript (read-transcript contents)]
     (log :debug "Loaded file:" contents)
@@ -131,14 +137,22 @@
       (doseq [p children]
         (save-paragraph! p)))
     (save-num-paragraphs! (count transcript))
-    (save-filename! filename)))
+    (save-transcript-filename! filename)))
 
-(defn read-file! [target-el event]
-  (log :debug "File selected:" event)
+(defn read-transcript-file! [target-el event]
+  (log :debug "Transcript file selected:" event)
   (let [file (-> event .-target .-files first)
         reader (js/FileReader.)]
-    (set! (.-onload reader) (partial import-file! target-el (.-name file)))
+    (set! (.-onload reader)
+          (partial import-transcript-file! target-el (.-name file)))
     (.readAsText reader file)))
+
+(defn load-audio! [audio-el event]
+  (log :debug "Audio file selected:" event)
+  (let [file (-> event .-target .-files first)
+        url (js/URL.createObjectURL file)]
+    (set! (.-src audio-el) url)
+    (save-audio-filename! (.-name file))))
 
 (defn set-paragraph-id! [p i]
   (let [p-id (str "transcript-p-" i)]
@@ -177,7 +191,9 @@
   (let [transcript-el (dom/get-el "#textbox")]
     (dom/clear-listeners! state)
     (dom/add-listener! state "#import" "change"
-                       (partial read-file! transcript-el))
+                       (partial read-transcript-file! transcript-el))
+    (dom/add-listener! state "#audio-file" "change"
+                       (partial load-audio! (dom/get-el "audio")))
     (dom/add-listener! state "#export" "click"
                        export-transcript!)
     (dom/add-listener! state "#textbox" "input"
