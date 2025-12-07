@@ -14,13 +14,20 @@
 
 (defonce state (atom {}))
 
-(defn log [& args]
-  (when (.-CLJCASTR_DEBUG js/window)
+(def log-level (keyword (.-CLJCASTR_LOG_LEVEL js/window)))
+
+(def log-level->int {:error 0
+                     :warn 1
+                     :info 2
+                     :debug 3})
+
+(defn log [level & args]
+  (when (<= (log-level->int level) (log-level->int log-level))
     (apply js/console.log args)))
 
 (defn clear-storage! []
   (let [storage (.-localStorage js/window)]
-    (log "Clearing" (.-length storage) "keys from local storage")
+    (log :debug "Clearing" (.-length storage) "keys from local storage")
     (.clear storage)))
 
 (defn read-transcript [text]
@@ -54,6 +61,7 @@
       (.getItem k)))
 
 (defn save-key! [k v]
+  (log :debug "Saving key" k "to local storage:" v)
   (-> (.-localStorage js/window)
       (.setItem k v)))
 
@@ -61,7 +69,6 @@
   (doseq [span-el (.-childNodes p-el)
           :let [k (.-id span-el)
                 v (.-textContent span-el)]]
-    (log "Saving key" k "to local storage:" v)
     (save-key! k v)))
 
 (defn display-transcript! [target-el transcript]
@@ -71,7 +78,7 @@
 (defn import-file! [target-el event]
   (let [contents (-> event .-target .-result)
         transcript (read-transcript contents)]
-    (log "Loaded file:" contents)
+    (log :debug "Loaded file:" contents)
     (swap! state assoc :transcript transcript)
     (display-transcript! target-el transcript)
     (clear-storage!)
@@ -81,7 +88,7 @@
       (save-key! "transcript-num-paragraphs" (.-length children)))))
 
 (defn read-file! [target-el event]
-  (log "File selected:" event)
+  (log :debug "File selected:" event)
   (let [file (-> event .-target .-files first)
         reader (js/FileReader.)]
     (set! (.-onload reader) (partial import-file! target-el))
@@ -90,21 +97,24 @@
 (defn handle-input! [ev]
   (let [sel (.getSelection js/window)
         el (.-anchorNode sel)
-        parent (.-parentNode el)]
-    (log "Input event:" ev)
-    (log "Element:" el)
-    (log "Parent:" parent)
-    (log "Parent ID:" (.-id parent))
-    (log "Offset:" (.-focusOffset sel))
-    (log "Text:" (.-textContent el))
-    (log "Text before:" (subs (.-textContent el) 0 (.-focusOffset sel)))
-    (log "Text after:" (subs (.-textContent el) (.-focusOffset sel)))
-    (if (= "insertParagraph" (.-inputType ev))
-      (log "Insert paragraph here")
-      (log "Update text here"))))
+        parent (.-parentNode el)
+        input-type (.-inputType ev)]
+    (log :debug "Got input event type" input-type "on element"
+         (if (= "#text" (.-nodeName el)) parent el))
+    (comment
+      (log "Element:" el)
+      (log "Parent:" parent)
+      (log "Parent ID:" (.-id parent))
+      (log "Offset:" (.-focusOffset sel))
+      (log "Text:" (.-textContent el))
+      (log "Text before:" (subs (.-textContent el) 0 (.-focusOffset sel)))
+      (log "Text after:" (subs (.-textContent el) (.-focusOffset sel))))
+    (if (= "insertParagraph" input-type)
+      (log :debug "Insert paragraph here")
+      (save-key! (.-id parent) (.-textContent el)))))
 
 (defn load-paragraph [i]
-  (log "Loading paragraph" i "from local storage")
+  (log :debug "Loading paragraph" i "from local storage")
   {:ts (load-key (str "transcript-p-" i "-ts"))
    :speaker (load-key (str "transcript-p-" i "-speaker"))
    :text (load-key (str "transcript-p-" i "-text"))})
@@ -112,7 +122,7 @@
 (defn restore-transcript! [target-el]
   (let [num-paragraphs (load-key "transcript-num-paragraphs")]
     (when num-paragraphs
-      (log "Loading transcript from local storage; restoring"
+      (log :info "Loading transcript from local storage; restoring"
            num-paragraphs "paragraphs")
       (->> (range num-paragraphs)
            (map load-paragraph)
