@@ -17,6 +17,18 @@
      (when (:class opts) (-> el .-classList (.add (:class opts))))
      el)))
 
+(defn clear-children!
+  "Removes all children from element `el`."
+  [el]
+  (.replaceChildren el))
+
+(defn set-children!
+  "Sets the children of element `el` to list of elements `children`"
+  [el children]
+  (clear-children! el)
+  (doseq [child children]
+    (.appendChild el child)))
+
 (defn add-listener!
   "Adds an event listener to the element specified by `sel` for events of type
    `event-type`, registering in the `state` atom."
