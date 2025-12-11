@@ -32,6 +32,12 @@
 (defn set-styles! [el styles]
   (set! (.-style (get-el el)) styles))
 
+(defn set-html! [el html]
+  (set! (.-innerHTML el) html))
+
+(defn set-text! [el text]
+  (set! (.-innerText el) text))
+
 (defn add-listener!
   "Adds an event listener to the element specified by `sel` for events of type
    `event-type`, registering in the `state` atom."
