@@ -32,6 +32,11 @@
   (doseq [child children]
     (.appendChild el child)))
 
+(defn set-child!
+  "Convenience function to set a single child of element `el`."
+  [el child]
+  (set-children! el [child]))
+
 (defn set-styles! [el styles]
   (set! (.-style (get-el el)) styles))
 
