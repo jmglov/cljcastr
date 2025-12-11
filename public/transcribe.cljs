@@ -108,6 +108,9 @@
       (->> (range num-paragraphs)
            (map load-paragraph)))))
 
+(defn clear-transcript! [target-el]
+  (dom/clear-children! target-el))
+
 (defn display-transcript! [target-el transcript]
   (doseq [p (transcript->elements transcript)]
     (.appendChild target-el p)))
@@ -122,6 +125,12 @@
     (set! (.-download a) filename)
     (.click a)))
 
+(defn save-transcript! [target-el transcript]
+  (let [children (.-childNodes target-el)]
+    (doseq [p children]
+      (save-paragraph! p)))
+  (save-num-paragraphs! (count transcript)))
+
 (defn export-transcript! []
   (save-edn! (or (load-transcript-filename) "transcript.edn")
              {:transcript (vec (load-transcript))}))
@@ -131,12 +140,10 @@
         transcript (read-transcript contents)]
     (log :debug "Loaded file:" contents)
     (swap! state assoc :transcript transcript)
+    (clear-transcript! target-el)
     (display-transcript! target-el transcript)
     (clear-storage!)
-    (let [children (.-childNodes target-el)]
-      (doseq [p children]
-        (save-paragraph! p)))
-    (save-num-paragraphs! (count transcript))
+    (save-transcript! target-el)
     (save-transcript-filename! filename)))
 
 (defn read-transcript-file! [target-el event]
