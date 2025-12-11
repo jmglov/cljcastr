@@ -32,7 +32,9 @@
 
     <h1>cljcastr transcribe</h1>
 
-    <div id="controls">
+    <div id="message" style="display: none"></div>
+
+    <div id="file-controls" class="controls">
       <label for="audio-file">Open audio</label>
       <input id="audio-file" type="file" accept="audio/*" />
       <label for="import">Import transcript</label>
@@ -40,7 +42,17 @@
       <button id="export" type="button" value="Export">Export</button>
     </div>
 
-    <audio preload="auto"></audio>
+    <div id="url-controls" class="controls">
+      <button id="audio-url-button" type="button">Open audio URL</button>
+      <input id="audio-url" type="text" />
+      <button id="transcript-url-button" type="button">Import transcript URL</button>
+      <input id="transcript-url" type="text" />
+    </div>
+
+    <div id="audio-controls" style="display: none">
+      <audio preload="auto"></audio>
+      <div><span id="audio-ts">00:00</span> / <span id="audio-dur">00:00</span></div>
+    </div>
 
     <div id="textbox" contenteditable="true"></div>
 

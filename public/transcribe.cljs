@@ -23,7 +23,48 @@
 
 (defn log [level & args]
   (when (<= (log-level->int level) (log-level->int log-level))
-    (apply js/console.log args)))
+    (apply js/console.log args))
+  (last args))
+
+(defn error! [msg]
+  (let [messages (dom/get-el "#message")
+        err (dom/create-el "span")]
+    (dom/add-class! err "error")
+    (dom/set-text! err msg)
+    (dom/set-child! messages err)
+    (dom/set-styles! messages "display: inline")))
+
+(defn hide-message! []
+  (-> (dom/get-el "#message") (dom/set-styles! "display: none")))
+
+(defn file-extension [path]
+  (->> path
+       (re-find #"^.+[.]([^.]+)$")
+       last))
+
+(defn format-pos
+  ([pos]
+   (format-pos pos false))
+  ([pos drop-decimal?]
+   (let [hh (-> pos (/ 3600) int)
+         hh-str (if (zero? hh) "" (str hh ":"))
+         mm (-> pos (/ 60) (mod 60) int)
+         mm-str (-> (str mm) (str/replace #"^(\d)$" "0$1") (str ":"))
+         ss (mod pos 60)
+         ss-str (-> (str ss)
+                    (str/replace #"^(\d+)$" "$1.00")
+                    (str/replace #"^(\d)[.]" "0$1.")
+                    (str/replace #"[.](\d{1,2})\d*" ".$1"))
+         ss-str (if drop-decimal?
+                  (str/replace ss-str #"[.]\d+$" "")
+                  ss-str)]
+     (str hh-str mm-str ss-str))))
+
+(defn get-audio-duration []
+  (-> (dom/get-el "audio") .-duration))
+
+(defn get-audio-ts []
+  (-> (dom/get-el "audio") .-currentTime))
 
 (defn clear-storage! []
   (let [storage (.-localStorage js/window)]
@@ -88,11 +129,23 @@
 (defn save-transcript-filename! [filename]
   (save-key! "transcript-filename" filename))
 
+(defn load-transcript-url []
+  (load-key "transcript-url"))
+
+(defn save-transcript-url! [url]
+  (save-key! "transcript-url" url))
+
 (defn load-audio-filename []
   (load-key "audio-filename"))
 
 (defn save-audio-filename! [filename]
   (save-key! "audio-filename" filename))
+
+(defn save-audio-url! [url]
+  (save-key! "audio-url" url))
+
+(defn save-audio-url! [url]
+  (save-key! "audio-url" url))
 
 (defn load-paragraph [i]
   (log :debug "Loading paragraph" i "from local storage")
@@ -115,6 +168,20 @@
   (doseq [p (transcript->elements transcript)]
     (.appendChild target-el p)))
 
+(defn display-audio-duration! []
+  (log :debug "Displaying duration" (get-audio-duration))
+  (dom/set-text! (dom/get-el "#audio-dur")
+                 (format-pos (get-audio-duration) true)))
+
+(defn display-audio-ts! []
+  (dom/set-text! (dom/get-el "#audio-ts")
+                 (format-pos (get-audio-ts) true)))
+
+(defn display-audio! []
+  (display-audio-ts!)
+  (display-audio-duration!)
+  (dom/set-styles! (dom/get-el "#audio-controls") "display: inline"))
+
 (defn restore-transcript! [target-el]
   (display-transcript! target-el (load-transcript)))
 
@@ -135,16 +202,28 @@
   (save-edn! (or (load-transcript-filename) "transcript.edn")
              {:transcript (vec (load-transcript))}))
 
+(defn import-transcript! [target-el transcript]
+  (swap! state assoc :transcript transcript)
+  (clear-transcript! target-el)
+  (display-transcript! target-el transcript)
+  (clear-storage!)
+  (save-transcript! target-el))
+
 (defn import-transcript-file! [target-el filename event]
   (let [contents (-> event .-target .-result)
         transcript (read-transcript contents)]
     (log :debug "Loaded file:" contents)
-    (swap! state assoc :transcript transcript)
-    (clear-transcript! target-el)
-    (display-transcript! target-el transcript)
-    (clear-storage!)
-    (save-transcript! target-el)
+    (import-transcript! target-el transcript)
     (save-transcript-filename! filename)))
+
+(defn import-transcript-url! [target-el url]
+  (log :debug "Fetching transcript from:" url)
+  (let [transcript-type (file-extension url)]
+    (save-transcript-url! url)
+    (p/->> (js/fetch (js/Request. url))
+           .text
+           read-transcript
+           (import-transcript! target-el))))
 
 (defn read-transcript-file! [target-el event]
   (log :debug "Transcript file selected:" event)
@@ -159,7 +238,13 @@
   (let [file (-> event .-target .-files first)
         url (js/URL.createObjectURL file)]
     (set! (.-src audio-el) url)
-    (save-audio-filename! (.-name file))))
+    (save-audio-filename! (.-name file))
+    (display-audio!)))
+
+(defn open-audio-url! [audio-el url]
+  (log :debug "Loading audio from URL:" url)
+  (set! (.-src audio-el) url)
+  (save-audio-url! url))
 
 (defn set-paragraph-id! [p i]
   (let [p-id (str "transcript-p-" i)]
@@ -194,6 +279,19 @@
       (insert-paragraph! parent)
       (save-key! (.-id parent) (.-textContent el)))))
 
+(defn handle-audio-url-button! [_ev]
+  (when-let [url (not-empty (dom/get-value "#audio-url"))]
+    (open-audio-url! (dom/get-el "audio") url)))
+
+(defn handle-transcript-url-button! [ev]
+  (when-let [url (not-empty (dom/get-value "#transcript-url"))]
+    (import-transcript-url! (dom/get-el "#textbox") url)))
+
+(defn handle-enter! [on-enter-fn ev]
+  (when (= "Enter" (.-key ev))
+    (log :debug "Enter pressed")
+    (on-enter-fn)))
+
 (defn init-ui! []
   (let [transcript-el (dom/get-el "#textbox")]
     (dom/clear-listeners! state)
@@ -205,6 +303,20 @@
                        export-transcript!)
     (dom/add-listener! state "#textbox" "input"
                        handle-input!)
+    (dom/add-listener! state "#audio-url-button" "click"
+                       handle-audio-url-button!)
+    (dom/add-listener! state "#audio-url" "keydown"
+                       (partial handle-enter! handle-audio-url-button!))
+    (dom/add-listener! state "#transcript-url-button" "click"
+                       handle-transcript-url-button!)
+    (dom/add-listener! state "#transcript-url" "keydown"
+                       (partial handle-enter! handle-transcript-url-button!))
+    (dom/add-listener! state "audio" "durationchange"
+                       #(do
+                          (log :debug "Audio loaded; duration:" (get-audio-duration))
+                          (display-audio!)))
+    (dom/add-listener! state "audio" "timeupdate"
+                       display-audio-ts!)
     (restore-transcript! transcript-el)))
 
 (comment
