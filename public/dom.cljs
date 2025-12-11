@@ -1,5 +1,8 @@
 (ns cljcastr.dom)
 
+(defn add-class! [el cls]
+  (-> el (.-classList) (.add cls)))
+
 (defn get-el [selector]
   (if (instance? js/HTMLElement selector)
     selector  ; already an element; just return it
