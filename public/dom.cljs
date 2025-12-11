@@ -8,6 +8,12 @@
     selector  ; already an element; just return it
     (js/document.querySelector selector)))
 
+(defn get-text [selector]
+  (.-innerText (get-el selector)))
+
+(defn get-value [selector]
+  (.-value (get-el selector)))
+
 (defn create-el
   "Creates an element of type `el-type`. If the `:id` key is present in `opts`,
    the id of the element will be set to it. If the `:class` key is present in
