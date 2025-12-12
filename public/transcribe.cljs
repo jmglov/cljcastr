@@ -14,6 +14,10 @@
 
 (defonce state (atom {}))
 
+(def seek-duration-sec 1.0)
+
+(def speed-step 0.25)
+
 (def log-level (keyword (.-CLJCASTR_LOG_LEVEL js/window)))
 
 (def log-level->int {:error 0
@@ -65,6 +69,15 @@
 
 (defn get-audio-ts []
   (-> (dom/get-el "audio") .-currentTime))
+
+(defn set-audio-ts! [ts]
+  (set! (.-currentTime (dom/get-el "audio")) ts))
+
+(defn get-audio-playback-rate []
+  (-> (dom/get-el "audio") .-playbackRate))
+
+(defn set-audio-playback-rate! [rate]
+  (set! (.-playbackRate (dom/get-el "audio")) rate))
 
 (defn clear-storage! []
   (let [storage (.-localStorage js/window)]
@@ -251,18 +264,51 @@
   (set! (.-src audio-el) url)
   (save-audio-url! url))
 
+(defn audio-loaded? []
+  (or (:audio-filename @state) (:audio-url @state)))
+
 (defn play-pause! []
-  (when (or (:audio-filename @state) (:audio-url @state))
-    (let [audio (dom/get-el "audio")]
+  (when (audio-loaded?)
+    (let [audio (dom/get-el "audio")
+          pos (-> (get-audio-ts) (format-pos false))]
       (if (:paused @state)
         (do
-          (log :debug "Playing audio")
+          (log :debug "Playing audio from" pos)
           (.play audio)
           (swap! state assoc :paused false))
         (do
-          (log :debug "Pausing audio")
+          (log :debug "Pausing audio at" pos)
           (.pause audio)
           (swap! state assoc :paused true))))))
+
+(defn seek! [delta]
+  (when (audio-loaded?)
+    (let [ts (get-audio-ts)
+          target-ts (+ ts delta)]
+      (log :debug
+           "Seeking from" (format-pos ts false)
+           "to" (format-pos target-ts false))
+      (set-audio-ts! target-ts))))
+
+(defn seek-backward! []
+  (seek! (* seek-duration-sec (get-audio-playback-rate) -1)))
+
+(defn seek-forward! []
+  (seek! (* seek-duration-sec (get-audio-playback-rate))))
+
+(defn set-speed! [delta]
+  (when (audio-loaded?)
+    (let [rate (get-audio-playback-rate)
+          target-rate (+ rate delta)]
+      (log :debug
+           "Changing speed from" rate "to" target-rate)
+      (set-audio-playback-rate! target-rate))))
+
+(defn speed-up! []
+  (set-speed! speed-step))
+
+(defn slow-down! []
+  (set-speed! (* speed-step -1)))
 
 (defn set-paragraph-id! [p i]
   (let [p-id (str "transcript-p-" i)]
@@ -310,6 +356,21 @@
     (log :debug "Enter pressed")
     (on-enter-fn)))
 
+(defn handle-global-keys! [ev]
+  (let [handle! (fn [f]
+                  (log :debug "Key pressed:" (.-key ev))
+                  (f)
+                  (.preventDefault ev))]
+    (case (.-key ev)
+      "Escape" (handle! play-pause!)
+      "F1" (handle! seek-backward!)
+      "F2" (handle! seek-forward!)
+      "F3" (handle! slow-down!)
+      "F4" (handle! speed-up!)
+      "j" (when (.-ctrlKey ev)
+            (handle! #(log :debug "Insert timestamp")))
+      :unmapped-key)))
+
 (defn init-ui! []
   (let [transcript-el (dom/get-el "#textbox")]
     (dom/clear-listeners! state)
@@ -336,6 +397,8 @@
                           (swap! state assoc :paused true)))
     (dom/add-listener! state "audio" "timeupdate"
                        display-audio-ts!)
+    (dom/add-listener! state js/document "keydown"
+                       handle-global-keys!)
     (restore-transcript! transcript-el)))
 
 (comment
