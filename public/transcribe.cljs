@@ -127,24 +127,28 @@
   (load-key "transcript-filename"))
 
 (defn save-transcript-filename! [filename]
+  (swap! state assoc :transcript-filename filename)
   (save-key! "transcript-filename" filename))
 
 (defn load-transcript-url []
   (load-key "transcript-url"))
 
 (defn save-transcript-url! [url]
+  (swap! state assoc :transcript-url url)
   (save-key! "transcript-url" url))
 
 (defn load-audio-filename []
   (load-key "audio-filename"))
 
 (defn save-audio-filename! [filename]
+  (swap! state assoc :audio-filename filename)
   (save-key! "audio-filename" filename))
 
-(defn save-audio-url! [url]
-  (save-key! "audio-url" url))
+(defn load-audio-url [url]
+  (load-key "audio-url" url))
 
 (defn save-audio-url! [url]
+  (swap! state assoc :audio-url url)
   (save-key! "audio-url" url))
 
 (defn load-paragraph [i]
@@ -239,12 +243,26 @@
         url (js/URL.createObjectURL file)]
     (set! (.-src audio-el) url)
     (save-audio-filename! (.-name file))
-    (display-audio!)))
+    (display-audio!)
+    (swap! state assoc :paused true)))
 
 (defn open-audio-url! [audio-el url]
   (log :debug "Loading audio from URL:" url)
   (set! (.-src audio-el) url)
   (save-audio-url! url))
+
+(defn play-pause! []
+  (when (or (:audio-filename @state) (:audio-url @state))
+    (let [audio (dom/get-el "audio")]
+      (if (:paused @state)
+        (do
+          (log :debug "Playing audio")
+          (.play audio)
+          (swap! state assoc :paused false))
+        (do
+          (log :debug "Pausing audio")
+          (.pause audio)
+          (swap! state assoc :paused true))))))
 
 (defn set-paragraph-id! [p i]
   (let [p-id (str "transcript-p-" i)]
@@ -314,7 +332,8 @@
     (dom/add-listener! state "audio" "durationchange"
                        #(do
                           (log :debug "Audio loaded; duration:" (get-audio-duration))
-                          (display-audio!)))
+                          (display-audio!)
+                          (swap! state assoc :paused true)))
     (dom/add-listener! state "audio" "timeupdate"
                        display-audio-ts!)
     (restore-transcript! transcript-el)))
