@@ -4,9 +4,10 @@
   (-> el (.-classList) (.add cls)))
 
 (defn get-el [selector]
-  (if (instance? js/HTMLElement selector)
-    selector  ; already an element; just return it
-    (js/document.querySelector selector)))
+  (if (string? selector)
+    (js/document.querySelector selector)
+    ;; Selector is not a string, so assume it's an element and return it
+    selector))
 
 (defn get-text [selector]
   (.-innerText (get-el selector)))
