@@ -59,6 +59,9 @@
 (defn set-text! [el text]
   (set! (.-innerText (get-el el)) text))
 
+(defn set-value! [el v]
+  (set! (.-value (get-el el)) v))
+
 (defn add-listener!
   "Adds an event listener to the element specified by `sel` for events of type
    `event-type`, registering in the `state` atom."
