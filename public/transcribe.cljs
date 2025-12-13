@@ -106,6 +106,11 @@
   (-> (.-localStorage js/window)
       (.setItem k v)))
 
+(defn remove-key! [k v]
+  (log :debug "Removing key" k "from local storage")
+  (-> (.-localStorage js/window)
+      (.removeItem k)))
+
 (defn load-num-paragraphs []
   (-> (load-key "transcript-num-paragraphs")
       js/parseInt))
@@ -128,28 +133,36 @@
 
 (defn save-transcript-filename! [filename]
   (swap! state assoc :transcript-filename filename)
-  (save-key! "transcript-filename" filename))
+  (swap! state dissoc :transcript-url)
+  (save-key! "transcript-filename" filename)
+  (remove-key! "transcript-url"))
 
 (defn load-transcript-url []
   (load-key "transcript-url"))
 
 (defn save-transcript-url! [url]
   (swap! state assoc :transcript-url url)
-  (save-key! "transcript-url" url))
+  (swap! state dissoc :transcript-filename)
+  (save-key! "transcript-url" url)
+  (remove-key! "transcript-filename"))
 
 (defn load-audio-filename []
   (load-key "audio-filename"))
 
 (defn save-audio-filename! [filename]
   (swap! state assoc :audio-filename filename)
-  (save-key! "audio-filename" filename))
+  (swap! state dissoc :audio-url)
+  (save-key! "audio-filename" filename)
+  (remove-key! "audio-url"))
 
 (defn load-audio-url [url]
   (load-key "audio-url" url))
 
 (defn save-audio-url! [url]
   (swap! state assoc :audio-url url)
-  (save-key! "audio-url" url))
+  (swap! state dissoc :audio-filename)
+  (save-key! "audio-url" url)
+  (remove-key! "audio-filename"))
 
 (defn load-paragraph [i]
   (log :debug "Loading paragraph" i "from local storage")
