@@ -241,12 +241,18 @@
 
 (defn import-transcript-url! [target-el url]
   (log :debug "Fetching transcript from:" url)
-  (let [transcript-type (file-extension url)]
-    (save-transcript-url! url)
-    (p/->> (js/fetch (js/Request. url))
-           .text
-           read-transcript
-           (import-transcript! target-el))))
+  (p/let [transcript-type (file-extension url)
+          response (js/fetch (js/Request. url))]
+    (log :debug "Fetch transcript response:" response)
+    (if (.-ok response)
+      (do
+        (p/->> response
+               .text
+               read-transcript
+               (import-transcript! target-el))
+        (save-transcript-url! url))
+      (error! (str "Failed to import transcript from URL " url ": "
+                   (.-statusText response))))))
 
 (defn read-transcript-file! [target-el event]
   (log :debug "Transcript file selected:" event)
