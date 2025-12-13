@@ -183,9 +183,14 @@
   (dom/set-text! (dom/get-el "#audio-ts")
                  (time/sec->ts (get-audio-ts) true)))
 
+(defn display-audio-playback-rate! []
+  (dom/set-text! (dom/get-el "#audio-rate")
+                 (str (get-audio-playback-rate) "x")))
+
 (defn display-audio! []
   (display-audio-ts!)
   (display-audio-duration!)
+  (display-audio-playback-rate!)
   (dom/set-styles! (dom/get-el "#audio-controls") "display: inline"))
 
 (defn restore-transcript! [target-el]
@@ -418,6 +423,8 @@
                           (swap! state assoc :paused true)))
     (dom/add-listener! state "audio" "error"
                        handle-audio-error!)
+    (dom/add-listener! state "audio" "ratechange"
+                       display-audio-playback-rate!)
     (dom/add-listener! state "audio" "timeupdate"
                        display-audio-ts!)
     (dom/add-listener! state js/document "keydown"
