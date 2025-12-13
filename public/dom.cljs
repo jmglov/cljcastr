@@ -1,10 +1,16 @@
 (ns cljcastr.dom)
 
-(defn get-el [selector]
-  (if (string? selector)
-    (js/document.querySelector selector)
-    ;; Selector is not a string, so assume it's an element and return it
-    selector))
+(defn get-el
+  "Returns the first element in the document matching the XPath selector
+   `selector`. If the `el` param is present, the selector applies to its
+   children instead of the top-level document."
+  ([selector]
+   (get-el js/document selector))
+  ([el selector]
+   (if (string? selector)
+     (.querySelector el selector)
+     ;; Selector is not a string, so assume it's an element and return it
+     selector)))
 
 (defn add-class! [el cls]
   (-> (get-el el) (.-classList) (.add cls)))
