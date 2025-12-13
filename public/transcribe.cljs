@@ -173,7 +173,6 @@
     (.appendChild target-el p)))
 
 (defn display-audio-duration! []
-  (log :debug "Displaying duration" (get-audio-duration))
   (dom/set-text! (dom/get-el "#audio-dur")
                  (time/sec->ts (get-audio-duration) true)))
 
