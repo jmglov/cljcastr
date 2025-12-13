@@ -12,6 +12,16 @@
      ;; Selector is not a string, so assume it's an element and return it
      selector)))
 
+(defn get-els
+  "Like `get-el`, but returns all elements matching `selector`."
+  ([selector]
+   (get-els js/document selector))
+  ([el selector]
+   (if (string? selector)
+     (.querySelectorAll el selector)
+     ;; Selector is not a string, so assume it's an element and return it
+     selector)))
+
 (defn add-class! [el cls]
   (-> (get-el el) (.-classList) (.add cls)))
 
