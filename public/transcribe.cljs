@@ -30,13 +30,19 @@
     (apply js/console.log args))
   (last args))
 
+(defn hide-message! []
+  (dom/set-styles! "#message" "display: none"))
+
+(defn show-message! [msg-type msg]
+  (log :error msg)
+  (let [message-el (dom/get-el "#message")
+        text-el (dom/get-el "#message-text")]
+    (dom/add-class! message-el (name msg-type))
+    (dom/set-text! text-el msg)
+    (dom/set-styles! message-el "display: flex")))
+
 (defn error! [msg]
-  (let [messages (dom/get-el "#message")
-        err (dom/create-el "span")]
-    (dom/add-class! err "error")
-    (dom/set-text! err msg)
-    (dom/set-child! messages err)
-    (dom/set-styles! messages "display: inline")))
+  (show-message! :error msg))
 
 (defn hide-message! []
   (-> (dom/get-el "#message") (dom/set-styles! "display: none")))
@@ -267,6 +273,30 @@
 (defn audio-loaded? []
   (or (:audio-filename @state) (:audio-url @state)))
 
+(defn handle-audio-error! [ev]
+  (let [err (-> ev .-target .-error)
+        src (or (:audio-filename @state) (:audio-url @state))
+        msg (cond
+              (= (.-code err) (.-MEDIA_ERR_ABORTED err))
+              "Audio playback aborted by user"
+
+              (= (.-code err) (.-MEDIA_ERR_NETWORK err))
+              (str "Audio download failed from URL: " src)
+
+              (= (.-code err) (.-MEDIA_ERR_DECODE err))
+              (str "Failed to decode audio: " src)
+
+              (= (.-code err) (.-MEDIA_ERR_SRC_NOT_SUPPORTED err))
+              (if (audio-loaded?)
+                (str "Audio failed to load from "
+                     (if (:audio-filename @state)
+                       (str "file: " src "; format not supported")
+                       (str "URL: " src "; file not found or format not supported"))))
+
+              :else
+              "Unknown audio error")]
+    (error! msg)))
+
 (defn play-pause! []
   (when (audio-loaded?)
     (let [audio (dom/get-el "audio")
@@ -374,6 +404,8 @@
 (defn init-ui! []
   (let [transcript-el (dom/get-el "#textbox")]
     (dom/clear-listeners! state)
+    (dom/add-listener! state "#close-message-button" "click"
+                       hide-message!)
     (dom/add-listener! state "#import" "change"
                        (partial read-transcript-file! transcript-el))
     (dom/add-listener! state "#audio-file" "change"
@@ -395,6 +427,8 @@
                           (log :debug "Audio loaded; duration:" (get-audio-duration))
                           (display-audio!)
                           (swap! state assoc :paused true)))
+    (dom/add-listener! state "audio" "error"
+                       handle-audio-error!)
     (dom/add-listener! state "audio" "timeupdate"
                        display-audio-ts!)
     (dom/add-listener! state js/document "keydown"

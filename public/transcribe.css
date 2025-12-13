@@ -2,6 +2,28 @@
   padding: 5px;
 }
 
+#message {
+  display: none;
+  border: solid thin;
+  font-weight: bold;
+  justify-content: space-between;
+  padding: 5px;
+}
+
+#message.error {
+  background-color: pink;
+}
+
+#message > span {
+  font-weight: bold;
+  padding: 5px;
+}
+
+#close-message-button {
+  align-self: center;
+  height: 1.5em;
+}
+
 #textbox {
   margin: 5px;
   outline: solid thin;
