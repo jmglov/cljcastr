@@ -203,11 +203,10 @@
     (set! (.-download a) filename)
     (.click a)))
 
-(defn save-transcript! [target-el transcript]
+(defn save-transcript! [target-el]
   (let [children (.-childNodes target-el)]
     (doseq [p children]
-      (save-paragraph! p)))
-  (save-num-paragraphs! (count transcript)))
+      (save-paragraph! p))))
 
 (defn export-transcript! []
   (save-edn! (or (load-transcript-filename) "transcript.edn")
@@ -218,7 +217,8 @@
   (clear-transcript! target-el)
   (display-transcript! target-el transcript)
   (clear-storage!)
-  (save-transcript! target-el))
+  (save-transcript! target-el)
+  (save-num-paragraphs! (count transcript)))
 
 (defn import-transcript-file! [target-el filename event]
   (let [contents (-> event .-target .-result)
