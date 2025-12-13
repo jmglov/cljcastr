@@ -58,7 +58,8 @@
   (-> (dom/get-el "audio") .-currentTime))
 
 (defn set-audio-ts! [ts]
-  (set! (.-currentTime (dom/get-el "audio")) ts))
+  (let [ts (if (string? ts) (time/ts->sec ts) ts)]
+    (set! (.-currentTime (dom/get-el "audio")) ts)))
 
 (defn get-audio-playback-rate []
   (-> (dom/get-el "audio") .-playbackRate))
@@ -82,6 +83,12 @@
               {:id (str "transcript-p-" i "-" (name k))
                :class (str "transcript-" (name k))})]
       (set! (.-innerText el) v)
+      (when (= k :ts)
+        (.setAttribute el "contenteditable" "false")
+        (.addEventListener el "click"
+                           #(do
+                              (log :debug "Seeking audio to timestamp:" v)
+                              (set-audio-ts! v))))
       el)))
 
 (defn create-transcript-spans [i paragraph]

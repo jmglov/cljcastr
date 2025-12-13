@@ -44,6 +44,7 @@
 
 .transcript-ts {
   color: blue;
+  cursor: pointer;
   font-weight: bold;
   margin-right: 0.5em;
   text-decoration: underline;
