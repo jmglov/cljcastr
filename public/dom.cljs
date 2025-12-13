@@ -1,13 +1,13 @@
 (ns cljcastr.dom)
 
-(defn add-class! [el cls]
-  (-> el (.-classList) (.add cls)))
-
 (defn get-el [selector]
   (if (string? selector)
     (js/document.querySelector selector)
     ;; Selector is not a string, so assume it's an element and return it
     selector))
+
+(defn add-class! [el cls]
+  (-> (get-el el) (.-classList) (.add cls)))
 
 (defn get-text [selector]
   (.-innerText (get-el selector)))
@@ -30,14 +30,15 @@
 (defn clear-children!
   "Removes all children from element `el`."
   [el]
-  (.replaceChildren el))
+  (.replaceChildren (get-el el)))
 
 (defn set-children!
   "Sets the children of element `el` to list of elements `children`"
   [el children]
-  (clear-children! el)
-  (doseq [child children]
-    (.appendChild el child)))
+  (let [el (get-el el)]
+    (clear-children! el)
+    (doseq [child children]
+      (.appendChild el child))))
 
 (defn set-child!
   "Convenience function to set a single child of element `el`."
@@ -48,10 +49,10 @@
   (set! (.-style (get-el el)) styles))
 
 (defn set-html! [el html]
-  (set! (.-innerHTML el) html))
+  (set! (.-innerHTML (get-el el)) html))
 
 (defn set-text! [el text]
-  (set! (.-innerText el) text))
+  (set! (.-innerText (get-el el)) text))
 
 (defn add-listener!
   "Adds an event listener to the element specified by `sel` for events of type
