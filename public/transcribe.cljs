@@ -34,13 +34,16 @@
 (defn hide-message! []
   (dom/set-styles! "#message" "display: none"))
 
-(defn show-message! [msg-type msg]
-  (log :error msg)
-  (let [message-el (dom/get-el "#message")
-        text-el (dom/get-el "#message-text")]
-    (dom/add-class! message-el (name msg-type))
-    (dom/set-text! text-el msg)
-    (dom/set-styles! message-el "display: flex")))
+(defn show-message!
+  ([msg]
+   (show-message! :info msg))
+  ([msg-type msg]
+   (log msg-type msg)
+   (let [message-el (dom/get-el "#message")
+         text-el (dom/get-el "#message-text")]
+     (dom/set-class! message-el (name msg-type))
+     (dom/set-text! text-el msg)
+     (dom/set-styles! message-el "display: flex"))))
 
 (defn error! [msg]
   (show-message! :error msg))
