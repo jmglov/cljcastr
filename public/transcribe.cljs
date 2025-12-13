@@ -72,38 +72,6 @@
     (log :debug "Clearing" (.-length storage) "keys from local storage")
     (.clear storage)))
 
-(defn read-transcript [text]
-  (-> (edn/read-string text)
-      :transcript))
-
-(defn create-transcript-span [i [k v]]
-  (when v
-    (let [el (dom/create-el
-              "span"
-              {:id (str "transcript-p-" i "-" (name k))
-               :class (str "transcript-" (name k))})]
-      (set! (.-innerText el) v)
-      (when (= k :ts)
-        (.setAttribute el "contenteditable" "false")
-        (.addEventListener el "click"
-                           #(do
-                              (log :debug "Seeking audio to timestamp:" v)
-                              (set-audio-ts! v))))
-      el)))
-
-(defn create-transcript-spans [i paragraph]
-  (->> [:ts :speaker :text]
-       (map (fn [k] (create-transcript-span i [k (get paragraph k)])))
-       (remove nil?)))
-
-(defn create-transcript-p [i paragraph]
-  (let [p (dom/create-el "p" {:id (str "transcript-p-" i)})]
-    (dom/set-children! p (create-transcript-spans i paragraph))
-    p))
-
-(defn transcript->elements [transcript]
-  (map-indexed create-transcript-p transcript))
-
 (defn load-key [k]
   (-> (.-localStorage js/window)
       (.getItem k)))
@@ -113,7 +81,7 @@
   (-> (.-localStorage js/window)
       (.setItem k v)))
 
-(defn remove-key! [k v]
+(defn remove-key! [k]
   (log :debug "Removing key" k "from local storage")
   (-> (.-localStorage js/window)
       (.removeItem k)))
@@ -170,6 +138,53 @@
   (swap! state dissoc :audio-filename)
   (save-key! "audio-url" url)
   (remove-key! "audio-filename"))
+
+(defn read-transcript [text]
+  (-> (edn/read-string text)
+      :transcript))
+
+(defn transcript-p-id [i]
+  (str "transcript-p-" i))
+
+(defn get-transcript-p [i]
+  (dom/get-el (str "#" (transcript-p-id i))))
+
+(defn transcript-span-id [i k]
+  (str "transcript-p-" i "-" (name k)))
+
+(defn get-transcript-ts [i]
+  (dom/get-el (str "#" (transcript-span-id i :ts))))
+
+(defn create-transcript-span [i [k v]]
+  (when v
+    (let [el (dom/create-el
+              "span"
+              {:id (transcript-span-id i k)
+               :class (str "transcript-" (name k))})]
+      (set! (.-innerText el) v)
+      (when (= k :ts)
+        (.setAttribute el "contenteditable" "false")
+        (.addEventListener el "click"
+                           #(do
+                              (log :debug "Seeking audio to timestamp:" v)
+                              (set-audio-ts! v))))
+      el)))
+
+(defn create-transcript-spans [i paragraph]
+  (->> [:ts :speaker :text]
+       (map (fn [k] (create-transcript-span i [k (get paragraph k)])))
+       (remove nil?)))
+
+(defn create-transcript-p [i paragraph]
+  (let [p (dom/create-el "p" {:id (str "transcript-p-" i)})]
+    (dom/set-children! p (create-transcript-spans i paragraph))
+    p))
+
+(defn speaker-span? [el]
+  (re-matches #"transcript-p-\d+-speaker" (.-id el)))
+
+(defn transcript->elements [transcript]
+  (map-indexed create-transcript-p transcript))
 
 (defn load-paragraph [i]
   (log :debug "Loading paragraph" i "from local storage")
@@ -378,15 +393,58 @@
             (recur (.-nextSibling p) (inc i))))
         (inc-num-paragraphs!)))))
 
+(defn get-paragraph-num [el]
+  (some #(->> (or (.-id %) "")  ; make sure re-matches gets a string
+              (re-matches #"transcript-p-(\d+)-.+")
+              second)
+        [el (.-parentNode el)]))
+
+(defn get-current-paragraph-num []
+  (-> js/window .getSelection .-anchorNode get-paragraph-num))
+
 (defn handle-input! [ev]
-  (let [sel (.getSelection js/window)
+  (let [textbox-el (.-target ev)
+        sel (.getSelection js/window)
         el (.-anchorNode sel)
         parent (.-parentNode el)
-        input-type (.-inputType ev)]
-    (log :debug "Got input event type" input-type "on element" parent)
-    (if (= "insertParagraph" input-type)
+        input-type (.-inputType ev)
+        paragraph-num (get-paragraph-num el)
+        offset (.-anchorOffset sel)]
+    (log :debug "Selection:" sel)
+    (log :debug "Got input event:" ev)
+    (log :debug "Selected node:" el)
+    (log :debug "Parent node:" parent)
+    (cond
+      (and (= "deleteContentBackward" input-type)
+           (speaker-span? parent)
+           (= 0 offset))
+      (do
+        (log :debug "Removing timestamp for paragraph" paragraph-num)
+        (remove-key! (transcript-span-id paragraph-num :ts)))
+
+      (= "historyUndo" input-type)
+      (do
+        (log :debug "Undo; syncing full transcript to local storage")
+        (save-transcript! textbox-el))
+
+      (= "insertParagraph" input-type)
       (insert-paragraph! parent)
+
+      :else
       (save-key! (.-id parent) (.-textContent el)))))
+
+(defn insert-timestamp! []
+  (let [ts (time/sec->ts (get-audio-ts) true)
+        paragraph-num (get-current-paragraph-num)
+        p (dom/get-el (get-transcript-p paragraph-num))]
+    (when paragraph-num
+      (log :debug (str "Inserting timestamp " ts " for paragraph " paragraph-num))
+      (let [ts-span (get-transcript-ts paragraph-num)]
+        (if ts-span
+          (dom/set-text! ts-span ts)
+          (let [ts-span (create-transcript-span paragraph-num [:ts ts])]
+            (.insertBefore p ts-span (-> (.-childNodes p) seq (nth 0)))))
+        (save-paragraph! p)))))
 
 (defn handle-audio-url-button! [_ev]
   (when-let [url (not-empty (dom/get-value "#audio-url"))]
@@ -413,7 +471,7 @@
       "F3" (handle! slow-down!)
       "F4" (handle! speed-up!)
       "j" (when (.-ctrlKey ev)
-            (handle! #(log :debug "Insert timestamp")))
+            (handle! insert-timestamp!))
       :unmapped-key)))
 
 (defn init-ui! []
