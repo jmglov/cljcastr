@@ -45,6 +45,11 @@
   [el child]
   (set-children! el [child]))
 
+(defn set-class! [el cls]
+  (let [el (get-el el)]
+    (set! (.-className el) "")
+    (add-class! el cls)))
+
 (defn set-styles! [el styles]
   (set! (.-style (get-el el)) styles))
 
