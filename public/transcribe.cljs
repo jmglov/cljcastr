@@ -51,11 +51,6 @@
 (defn hide-message! []
   (-> (dom/get-el "#message") (dom/set-styles! "display: none")))
 
-(defn file-extension [path]
-  (->> path
-       (re-find #"^.+[.]([^.]+)$")
-       last))
-
 (defn get-audio-duration []
   (-> (dom/get-el "audio") .-duration))
 
@@ -232,8 +227,7 @@
 
 (defn import-transcript-url! [target-el url]
   (log :debug "Fetching transcript from:" url)
-  (p/let [transcript-type (file-extension url)
-          response (js/fetch (js/Request. url))]
+  (p/let [response (js/fetch (js/Request. url))]
     (log :debug "Fetch transcript response:" response)
     (if (.-ok response)
       (do
