@@ -8,6 +8,7 @@
 
 (ns cljcastr.transcript
   (:require [cljcastr.dom :as dom]
+            [cljcastr.time :as time]
             [clojure.edn :as edn]
             [clojure.string :as str]
             [promesa.core :as p]))
@@ -51,24 +52,6 @@
   (->> path
        (re-find #"^.+[.]([^.]+)$")
        last))
-
-(defn format-pos
-  ([pos]
-   (format-pos pos false))
-  ([pos drop-decimal?]
-   (let [hh (-> pos (/ 3600) int)
-         hh-str (if (zero? hh) "" (str hh ":"))
-         mm (-> pos (/ 60) (mod 60) int)
-         mm-str (-> (str mm) (str/replace #"^(\d)$" "0$1") (str ":"))
-         ss (mod pos 60)
-         ss-str (-> (str ss)
-                    (str/replace #"^(\d+)$" "$1.00")
-                    (str/replace #"^(\d)[.]" "0$1.")
-                    (str/replace #"[.](\d{1,2})\d*" ".$1"))
-         ss-str (if drop-decimal?
-                  (str/replace ss-str #"[.]\d+$" "")
-                  ss-str)]
-     (str hh-str mm-str ss-str))))
 
 (defn get-audio-duration []
   (-> (dom/get-el "audio") .-duration))
@@ -194,11 +177,11 @@
 (defn display-audio-duration! []
   (log :debug "Displaying duration" (get-audio-duration))
   (dom/set-text! (dom/get-el "#audio-dur")
-                 (format-pos (get-audio-duration) true)))
+                 (time/sec->ts (get-audio-duration) true)))
 
 (defn display-audio-ts! []
   (dom/set-text! (dom/get-el "#audio-ts")
-                 (format-pos (get-audio-ts) true)))
+                 (time/sec->ts (get-audio-ts) true)))
 
 (defn display-audio! []
   (display-audio-ts!)
@@ -306,7 +289,7 @@
 (defn play-pause! []
   (when (audio-loaded?)
     (let [audio (dom/get-el "audio")
-          pos (-> (get-audio-ts) (format-pos false))]
+          pos (-> (get-audio-ts) (time/sec->ts false))]
       (if (:paused @state)
         (do
           (log :debug "Playing audio from" pos)
@@ -322,8 +305,8 @@
     (let [ts (get-audio-ts)
           target-ts (+ ts delta)]
       (log :debug
-           "Seeking from" (format-pos ts false)
-           "to" (format-pos target-ts false))
+           "Seeking from" (time/sec->ts ts false)
+           "to" (time/sec->ts target-ts false))
       (set-audio-ts! target-ts))))
 
 (defn seek-backward! []
