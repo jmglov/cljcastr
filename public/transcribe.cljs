@@ -410,7 +410,14 @@
       :unmapped-key)))
 
 (defn init-ui! []
-  (let [transcript-el (dom/get-el "#textbox")]
+  (let [transcript-el (dom/get-el "#textbox")
+        params (js/URLSearchParams. js/window.location.search)
+        audio-url (.get params "audio-url")
+        transcript-url (.get params "transcript-url")]
+    (when audio-url
+      (dom/set-value! "#audio-url" audio-url))
+    (when transcript-url
+      (dom/set-value! "#transcript-url" transcript-url))
     (dom/clear-listeners! state)
     (dom/add-listener! state "#close-message-button" "click"
                        hide-message!)
