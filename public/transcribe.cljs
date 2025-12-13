@@ -204,14 +204,16 @@
   (dom/set-styles! (dom/get-el "#audio-controls") "display: inline"))
 
 (defn restore-transcript! [target-el]
-  (display-transcript! target-el (load-transcript)))
+  (display-transcript! target-el (load-transcript))
+  (show-message! "Transcript restored from local storage"))
 
 (defn save-edn! [filename data]
   (let [a (dom/create-el "a")
         blob (js/Blob. [(pr-str data)] (clj->js {:type "application/edn"}))]
     (set! (.-href a) (js/URL.createObjectURL blob))
     (set! (.-download a) filename)
-    (.click a)))
+    (.click a))
+  (show-message! (str "Transcript saved to file: " filename)))
 
 (defn save-transcript! [target-el]
   (let [children (.-childNodes target-el)]
@@ -235,7 +237,8 @@
         transcript (read-transcript contents)]
     (log :debug "Loaded file:" contents)
     (import-transcript! target-el transcript)
-    (save-transcript-filename! filename)))
+    (save-transcript-filename! filename))
+  (show-message! (str "Transcript imported from file: " filename)))
 
 (defn import-transcript-url! [target-el url]
   (log :debug "Fetching transcript from:" url)
@@ -247,7 +250,8 @@
                .text
                read-transcript
                (import-transcript! target-el))
-        (save-transcript-url! url))
+        (save-transcript-url! url)
+        (show-message! (str "Transcript imported from URL: " url)))
       (error! (str "Failed to import transcript from URL " url ": "
                    (.-statusText response))))))
 
@@ -262,16 +266,17 @@
 (defn load-audio! [audio-el event]
   (log :debug "Audio file selected:" event)
   (let [file (-> event .-target .-files first)
+        filename (.-name file)
         url (js/URL.createObjectURL file)]
     (set! (.-src audio-el) url)
-    (save-audio-filename! (.-name file))
+    (save-audio-filename! filename)
     (display-audio!)
     (swap! state assoc :paused true)))
 
 (defn open-audio-url! [audio-el url]
   (log :debug "Loading audio from URL:" url)
-  (set! (.-src audio-el) url)
-  (save-audio-url! url))
+  (save-audio-url! url)
+  (set! (.-src audio-el) url))
 
 (defn audio-loaded? []
   (or (:audio-filename @state) (:audio-url @state)))
@@ -426,10 +431,12 @@
     (dom/add-listener! state "#transcript-url" "keydown"
                        (partial handle-enter! handle-transcript-url-button!))
     (dom/add-listener! state "audio" "durationchange"
-                       #(do
+                       #(let [src (or (:audio-filename @state) (:audio-url @state))
+                              src-type (if (:audio-filename @state) "file" "URL")]
                           (log :debug "Audio loaded; duration:" (get-audio-duration))
                           (display-audio!)
-                          (swap! state assoc :paused true)))
+                          (swap! state assoc :paused true)
+                          (show-message! (str "Loaded audio from " src-type ": " src))))
     (dom/add-listener! state "audio" "error"
                        handle-audio-error!)
     (dom/add-listener! state "audio" "ratechange"
