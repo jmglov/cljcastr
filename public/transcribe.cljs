@@ -152,8 +152,11 @@
 (defn transcript-span-id [i k]
   (str "transcript-p-" i "-" (name k)))
 
+(defn get-transcript-span [i k]
+  (dom/get-el (str "#" (transcript-span-id i k))))
+
 (defn get-transcript-ts [i]
-  (dom/get-el (str "#" (transcript-span-id i :ts))))
+  (transcript-span-id i :ts))
 
 (defn create-transcript-span [i [k v]]
   (when v
@@ -180,8 +183,23 @@
     (dom/set-children! p (create-transcript-spans i paragraph))
     p))
 
+(defn ts-span? [el]
+  (re-matches #"transcript-p-\d+-ts" (.-id el)))
+
 (defn speaker-span? [el]
   (re-matches #"transcript-p-\d+-speaker" (.-id el)))
+
+(defn text-span? [el]
+  (re-matches #"transcript-p-\d+-text" (.-id el)))
+
+(defn has-ts? [paragraph-num]
+  (get-transcript-span paragraph-num :ts))
+
+(defn has-speaker? [paragraph-num]
+  (get-transcript-span paragraph-num :speaker))
+
+(defn has-text? [paragraph-num]
+  (get-transcript-span paragraph-num :text))
 
 (defn transcript->elements [transcript]
   (map-indexed create-transcript-p transcript))
@@ -410,19 +428,14 @@
         parent (.-parentNode el)
         input-type (.-inputType ev)
         paragraph-num (get-paragraph-num el)
-        offset (.-anchorOffset sel)]
+        offset (.-anchorOffset sel)
+        in-speaker? (speaker-span? parent)
+        in-text? (text-span? parent)]
     (log :debug "Selection:" sel)
     (log :debug "Got input event:" ev)
     (log :debug "Selected node:" el)
     (log :debug "Parent node:" parent)
     (cond
-      (and (= "deleteContentBackward" input-type)
-           (speaker-span? parent)
-           (= 0 offset))
-      (do
-        (log :debug "Removing timestamp for paragraph" paragraph-num)
-        (remove-key! (transcript-span-id paragraph-num :ts)))
-
       (= "historyUndo" input-type)
       (do
         (log :debug "Undo; syncing full transcript to local storage")
@@ -432,7 +445,9 @@
       (insert-paragraph! parent)
 
       :else
-      (save-key! (.-id parent) (.-textContent el)))))
+      (save-key! (.-id parent) (.-textContent el)))
+    (when-not (has-ts? paragraph-num)
+      (remove-key! (transcript-span-id paragraph-num :ts)))))
 
 (defn insert-timestamp! []
   (let [ts (time/sec->ts (get-audio-ts) true)
@@ -440,12 +455,12 @@
         p (dom/get-el (get-transcript-p paragraph-num))]
     (when paragraph-num
       (log :debug (str "Inserting timestamp " ts " for paragraph " paragraph-num))
-      (let [ts-span (get-transcript-ts paragraph-num)]
+      (let [ts-span (get-transcript-span paragraph-num :ts)]
         (if ts-span
           (dom/set-text! ts-span ts)
           (let [ts-span (create-transcript-span paragraph-num [:ts ts])]
             (.insertBefore p ts-span (-> (.-childNodes p) seq (nth 0)))))
-        (save-paragraph! p)))))
+        (save-key! (transcript-span-id paragraph-num :ts) ts)))))
 
 (defn handle-audio-url-button! [_ev]
   (when-let [url (not-empty (dom/get-value "#audio-url"))]
