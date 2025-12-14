@@ -472,17 +472,22 @@
       (remove-key! (transcript-span-id paragraph-num :ts)))))
 
 (defn insert-timestamp! []
-  (let [ts (time/sec->ts (get-audio-ts) true)
-        paragraph-num (get-current-paragraph-num)
-        p (dom/get-el (get-transcript-p paragraph-num))]
-    (when paragraph-num
-      (log :debug (str "Inserting timestamp " ts " for paragraph " paragraph-num))
+  (let [{:keys [paragraph-num offset in-speaker in-text]} (get-location)
+        p (get-transcript-p paragraph-num)
+        ts (time/sec->ts (get-audio-ts) true)]
+    (if (or in-speaker (and in-text (= 0 offset)))
       (let [ts-span (get-transcript-span paragraph-num :ts)]
         (if ts-span
-          (dom/set-text! ts-span ts)
+          (do
+            (log :debug (str "Setting timestamp to " ts
+                             " for paragraph " paragraph-num))
+            (dom/set-text! ts-span ts))
           (let [ts-span (create-transcript-span paragraph-num [:ts ts])]
+            (log :debug (str "Adding timestamp " ts
+                             " to paragraph " paragraph-num))
             (.insertBefore p ts-span (-> (.-childNodes p) seq (nth 0)))))
-        (save-key! (transcript-span-id paragraph-num :ts) ts)))))
+        (save-key! (transcript-span-id paragraph-num :ts) ts))
+      (log :debug "Inserting timestamp here should start a new paragraph with no speaker"))))
 
 (defn handle-audio-url-button! [_ev]
   (when-let [url (not-empty (dom/get-value "#audio-url"))]
