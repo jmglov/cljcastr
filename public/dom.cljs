@@ -142,6 +142,12 @@
   [selector cls]
   (-> (get-el selector) .-classList (.remove cls)))
 
+(defn has-class?
+  "Returns true if the element identified by `selector` has class `cls`.
+   `selector` may also be an element."
+  [selector cls]
+  (-> (get-el selector) .-classList (.contains cls)))
+
 (defn set-attribute!
   "Sets attribute `attr` of the element identified by `selector` to `v`.
    `selector` may also be an element."
