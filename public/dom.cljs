@@ -142,17 +142,23 @@
   [selector cls]
   (-> (get-el selector) .-classList (.remove cls)))
 
-(defn set-styles!
-  "Sets styles of the element identified by `selector` to `styles`. `selector`
-   may also be an element."
-  [selector styles]
-  (set! (.-style (get-el selector)) styles))
+(defn set-attribute!
+  "Sets attribute `attr` of the element identified by `selector` to `v`.
+   `selector` may also be an element."
+  [selector attr v]
+  (.setAttribute (get-el selector) attr v))
 
 (defn set-html!
   "Sets inner HTML of the element identified by `selector` to `html`.
    `selector` may also be an element."
   [selector html]
   (set! (.-innerHTML (get-el selector)) html))
+
+(defn set-styles!
+  "Sets styles of the element identified by `selector` to `styles`. `selector`
+   may also be an element."
+  [selector styles]
+  (set! (.-style (get-el selector)) styles))
 
 (defn set-text!
   "Sets inner text of the element identified by `selector` to `text`. `selector`
