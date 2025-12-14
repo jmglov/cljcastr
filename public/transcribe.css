@@ -38,7 +38,12 @@
 
 #textbox {
   margin: 5px;
+  min-height: 2em;
   outline: solid thin;
+  padding: 5px;
+}
+
+#textbox span {
   padding: 5px;
 }
 

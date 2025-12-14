@@ -165,8 +165,8 @@
               {:id (transcript-span-id i k)
                :class (str "transcript-" (name k))})]
       (set! (.-innerText el) v)
-      (when (= k :ts)
-        (.setAttribute el "contenteditable" "false")
+      (dom/set-attribute! el "contenteditable" (if (= :ts k) "false" "true"))
+      (when (= :ts k)
         (.addEventListener el "click"
                            #(do
                               (log :debug "Seeking audio to timestamp:" v)
@@ -573,8 +573,8 @@
                        (init-transcript! transcript-el)
                        (show-message! "Transcript cleared"))))
 
-(defn add-input-listeners! []
-  (dom/add-listener! state "#textbox" "input"
+(defn add-input-listeners! [transcript-el]
+  (dom/add-listener! state transcript-el "input"
                      handle-input!))
 
 (defn add-key-listeners! []
@@ -590,7 +590,7 @@
     (dom/clear-listeners! state)
     (add-import-listeners!)
     (add-export-listeners! transcript-el)
-    (add-input-listeners!)
+    (add-input-listeners! transcript-el)
     (add-audio-listeners!)
     (add-key-listeners!)
     (add-message-listeners!)
