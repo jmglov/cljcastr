@@ -508,63 +508,94 @@
             (handle! insert-timestamp!))
       :unmapped-key)))
 
-(defn init-ui! []
-  (let [transcript-el (dom/get-el "#textbox")
-        params (js/URLSearchParams. js/window.location.search)
+(defn init-transcript!
+  "If no transcript is available in local storage, create one."
+  [transcript-el]
+  (when-not (dom/get-children transcript-el)
+    (let [p (create-transcript-p 0 {:ts "00:00"
+                                    :speaker "Speaker 1"
+                                    :text "Insert text here"})]
+      (dom/set-child! transcript-el p))
+    (let [speaker-el (get-transcript-span 0 :speaker)
+          text-el (get-transcript-span 0 :text)]
+      (dom/add-class! speaker-el "example")
+      (dom/add-listener! state speaker-el "click" select-text!)
+      (dom/add-class! text-el "example")
+      (dom/add-listener! state text-el "click" select-text!))
+    (save-transcript! transcript-el)
+    (save-num-paragraphs! 1)))
+
+(defn load-query-params! []
+  (let [params (js/URLSearchParams. js/window.location.search)
         audio-url (.get params "audio-url")
         transcript-url (.get params "transcript-url")]
     (when audio-url
       (dom/set-value! "#audio-url" audio-url))
     (when transcript-url
-      (dom/set-value! "#transcript-url" transcript-url))
+      (dom/set-value! "#transcript-url" transcript-url))))
+
+(defn add-audio-listeners! []
+  (dom/add-listener! state "audio" "durationchange"
+                     #(let [src (or (:audio-filename @state) (:audio-url @state))
+                            src-type (if (:audio-filename @state) "file" "URL")]
+                        (log :debug "Audio loaded; duration:" (get-audio-duration))
+                        (display-audio!)
+                        (swap! state assoc :paused true)
+                        (show-message! (str "Loaded audio from " src-type ": " src))))
+  (dom/add-listener! state "audio" "error"
+                     handle-audio-error!)
+  (dom/add-listener! state "audio" "ratechange"
+                     display-audio-playback-rate!)
+  (dom/add-listener! state "audio" "timeupdate"
+                     display-audio-ts!))
+
+(defn add-import-listeners! [transcript-el]
+  (dom/add-listener! state "#import" "change"
+                     (partial read-transcript-file! transcript-el))
+  (dom/add-listener! state "#audio-file" "change"
+                     (partial load-audio! (dom/get-el "audio")))
+  (dom/add-listener! state "#audio-url-button" "click"
+                     handle-audio-url-button!)
+  (dom/add-listener! state "#audio-url" "keydown"
+                     (partial handle-enter! handle-audio-url-button!))
+  (dom/add-listener! state "#transcript-url-button" "click"
+                     handle-transcript-url-button!)
+  (dom/add-listener! state "#transcript-url" "keydown"
+                     (partial handle-enter! handle-transcript-url-button!)))
+
+(defn add-export-listeners! [transcript-el]
+  (dom/add-listener! state "#export" "click"
+                     export-transcript!)
+  (dom/add-listener! state "#clear" "click"
+                     (fn [_ev]
+                       (clear-storage!)
+                       (dom/clear-children! transcript-el)
+                       (init-transcript! transcript-el)
+                       (show-message! "Transcript cleared"))))
+
+(defn add-input-listeners! []
+  (dom/add-listener! state "#textbox" "input"
+                     handle-input!))
+
+(defn add-key-listeners! []
+  (dom/add-listener! state js/document "keydown"
+                     handle-global-keys!))
+
+(defn add-message-listeners! []
+  (dom/add-listener! state "#close-message-button" "click" hide-message!))
+
+(defn init-ui! []
+  (let [transcript-el (dom/get-el "#textbox")]
+    (load-query-params!)
     (dom/clear-listeners! state)
-    (dom/add-listener! state "#close-message-button" "click"
-                       hide-message!)
-    (dom/add-listener! state "#import" "change"
-                       (partial read-transcript-file! transcript-el))
-    (dom/add-listener! state "#audio-file" "change"
-                       (partial load-audio! (dom/get-el "audio")))
-    (dom/add-listener! state "#export" "click"
-                       export-transcript!)
-    (dom/add-listener! state "#textbox" "input"
-                       handle-input!)
-    (dom/add-listener! state "#audio-url-button" "click"
-                       handle-audio-url-button!)
-    (dom/add-listener! state "#audio-url" "keydown"
-                       (partial handle-enter! handle-audio-url-button!))
-    (dom/add-listener! state "#transcript-url-button" "click"
-                       handle-transcript-url-button!)
-    (dom/add-listener! state "#transcript-url" "keydown"
-                       (partial handle-enter! handle-transcript-url-button!))
-    (dom/add-listener! state "audio" "durationchange"
-                       #(let [src (or (:audio-filename @state) (:audio-url @state))
-                              src-type (if (:audio-filename @state) "file" "URL")]
-                          (log :debug "Audio loaded; duration:" (get-audio-duration))
-                          (display-audio!)
-                          (swap! state assoc :paused true)
-                          (show-message! (str "Loaded audio from " src-type ": " src))))
-    (dom/add-listener! state "audio" "error"
-                       handle-audio-error!)
-    (dom/add-listener! state "audio" "ratechange"
-                       display-audio-playback-rate!)
-    (dom/add-listener! state "audio" "timeupdate"
-                       display-audio-ts!)
-    (dom/add-listener! state js/document "keydown"
-                       handle-global-keys!)
+    (add-import-listeners!)
+    (add-export-listeners! transcript-el)
+    (add-input-listeners!)
+    (add-audio-listeners!)
+    (add-key-listeners!)
+    (add-message-listeners!)
     (restore-transcript! transcript-el)
-    (when-not (dom/get-children transcript-el)
-      (let [p (create-transcript-p 0 {:ts "00:00"
-                                      :speaker "Speaker 1"
-                                      :text "Insert text here"})]
-        (dom/set-child! transcript-el p))
-      (let [speaker-el (get-transcript-span 0 :speaker)
-            text-el (get-transcript-span 0 :text)]
-        (dom/add-class! speaker-el "example")
-        (dom/add-listener! state speaker-el "click" select-text!)
-        (dom/add-class! text-el "example")
-        (dom/add-listener! state text-el "click" select-text!))
-      (save-transcript! transcript-el)
-      (save-num-paragraphs! 1))))
+    (init-transcript! transcript-el)))
 
 (comment
 
