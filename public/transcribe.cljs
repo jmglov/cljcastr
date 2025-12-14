@@ -421,20 +421,37 @@
 (defn get-current-paragraph-num []
   (-> js/window .getSelection .-anchorNode get-paragraph-num))
 
-(defn handle-input! [ev]
-  (let [textbox-el (.-target ev)
-        sel (.getSelection js/window)
+(defn get-location []
+  (let [sel (.getSelection js/window)
         el (.-anchorNode sel)
         parent (.-parentNode el)
-        input-type (.-inputType ev)
         paragraph-num (get-paragraph-num el)
-        offset (.-anchorOffset sel)
-        in-speaker? (speaker-span? parent)
-        in-text? (text-span? parent)]
+        offset (.-anchorOffset sel)]
     (log :debug "Selection:" sel)
-    (log :debug "Got input event:" ev)
     (log :debug "Selected node:" el)
     (log :debug "Parent node:" parent)
+    {:sel sel
+     :el el
+     :parent parent
+     :paragraph-num paragraph-num
+     :offset offset
+     :in-speaker (speaker-span? parent)
+     :in-text (text-span? parent)}))
+
+;; select-text! must be declared so it can refer to itself when unregistering
+(declare select-text!)
+
+(defn select-text! [ev]
+  (let [el (.-target ev)]
+    (log :debug "Selecting text in element:" el)
+    (dom/select-el! el)
+    (dom/clear-listeners! state el (.-type ev))))
+
+(defn handle-input! [ev]
+  (let [textbox-el (.-target ev)
+        input-type (.-inputType ev)
+        {:keys [sel el parent paragraph-num offset in-speaker in-text]} (get-location)]
+    (log :debug "Got input event:" ev)
     (cond
       (= "historyUndo" input-type)
       (do
@@ -446,6 +463,7 @@
 
       :else
       (save-key! (.-id parent) (.-textContent el)))
+    (dom/remove-class! parent "example")
     (when-not (has-ts? paragraph-num)
       (remove-key! (transcript-span-id paragraph-num :ts)))))
 
@@ -533,7 +551,20 @@
                        display-audio-ts!)
     (dom/add-listener! state js/document "keydown"
                        handle-global-keys!)
-    (restore-transcript! transcript-el)))
+    (restore-transcript! transcript-el)
+    (when-not (dom/get-children transcript-el)
+      (let [p (create-transcript-p 0 {:ts "00:00"
+                                      :speaker "Speaker 1"
+                                      :text "Insert text here"})]
+        (dom/set-child! transcript-el p))
+      (let [speaker-el (get-transcript-span 0 :speaker)
+            text-el (get-transcript-span 0 :text)]
+        (dom/add-class! speaker-el "example")
+        (dom/add-listener! state speaker-el "click" select-text!)
+        (dom/add-class! text-el "example")
+        (dom/add-listener! state text-el "click" select-text!))
+      (save-transcript! transcript-el)
+      (save-num-paragraphs! 1))))
 
 (comment
 
