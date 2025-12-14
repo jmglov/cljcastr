@@ -441,10 +441,14 @@
 ;; select-text! must be declared so it can refer to itself when unregistering
 (declare select-text!)
 
-(defn select-text! [ev]
+(defn select-example-text! [ev]
   (let [el (.-target ev)]
-    (log :debug "Selecting text in element:" el)
-    (dom/select-el! el)
+    (when (dom/has-class? el "example")
+      (dom/select-el! el))))
+
+(defn select-text! [ev]
+  (select-example-text! ev)
+  (let [el (.-target ev)]
     (dom/clear-listeners! state el (.-type ev))))
 
 (defn handle-input! [ev]
@@ -520,8 +524,12 @@
           text-el (get-transcript-span 0 :text)]
       (dom/add-class! speaker-el "example")
       (dom/add-listener! state speaker-el "click" select-text!)
+      (dom/add-listener! state speaker-el "focus" select-example-text!)
       (dom/add-class! text-el "example")
-      (dom/add-listener! state text-el "click" select-text!))
+      (dom/add-listener! state text-el "click" select-text!)
+      (dom/add-listener! state text-el "focus" select-example-text!)
+      (.focus speaker-el)
+      (dom/select-el! speaker-el))
     (save-transcript! transcript-el)
     (save-num-paragraphs! 1)))
 
