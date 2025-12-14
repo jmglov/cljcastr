@@ -226,8 +226,9 @@
   (dom/set-styles! (dom/get-el "#audio-controls") "display: inline"))
 
 (defn restore-transcript! [target-el]
-  (display-transcript! target-el (load-transcript))
-  (show-message! "Transcript restored from local storage"))
+  (when-not (get-transcript-p 0)
+    (display-transcript! target-el (load-transcript))
+    (show-message! "Transcript restored from local storage")))
 
 (defn save-edn! [filename data]
   (let [a (dom/create-el "a")
