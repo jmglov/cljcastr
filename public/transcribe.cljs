@@ -158,20 +158,26 @@
 (defn get-transcript-ts [i]
   (transcript-span-id i :ts))
 
+(defn transcript-span-class [k]
+  (str "transcript-" (name k)))
+
 (defn create-transcript-span [i [k v]]
-  (when v
-    (let [el (dom/create-el
-              "span"
-              {:id (transcript-span-id i k)
-               :class (str "transcript-" (name k))})]
-      (set! (.-innerText el) v)
-      (dom/set-attribute! el "contenteditable" (if (= :ts k) "false" "true"))
-      (when (= :ts k)
-        (.addEventListener el "click"
-                           #(do
-                              (log :debug "Seeking audio to timestamp:" v)
-                              (set-audio-ts! v))))
-      el)))
+  (let [cls (transcript-span-class k)
+        el (dom/create-el
+            "span"
+            {:id (transcript-span-id i k)
+             :class cls})]
+    (set! (.-innerText el) (or v ""))
+    (dom/set-attribute! el "contenteditable" (if (= :ts k) "false" "true"))
+    (when (= :ts k)
+      (when (or (nil? v) (re-matches #"\s*" v))
+        (dom/remove-class! el cls))
+      (.addEventListener el "click"
+                         (fn [ev]
+                           (when-let [ts (-> ev .-target dom/get-text) not-empty]
+                             (log :debug "Seeking audio to timestamp:" ts)
+                             (set-audio-ts! ts)))))
+    el))
 
 (defn create-transcript-spans [i paragraph]
   (->> [:ts :speaker :text]
@@ -477,15 +483,10 @@
         ts (time/sec->ts (get-audio-ts) true)]
     (if (or in-speaker (and in-text (= 0 offset)))
       (let [ts-span (get-transcript-span paragraph-num :ts)]
-        (if ts-span
-          (do
-            (log :debug (str "Setting timestamp to " ts
-                             " for paragraph " paragraph-num))
-            (dom/set-text! ts-span ts))
-          (let [ts-span (create-transcript-span paragraph-num [:ts ts])]
-            (log :debug (str "Adding timestamp " ts
-                             " to paragraph " paragraph-num))
-            (.insertBefore p ts-span (-> (.-childNodes p) seq (nth 0)))))
+        (log :debug (str "Setting timestamp to " ts
+                         " for paragraph " paragraph-num))
+        (dom/set-text! ts-span ts)
+        (dom/add-class! ts-span (transcript-span-class :ts))
         (save-key! (transcript-span-id paragraph-num :ts) ts))
       (log :debug "Inserting timestamp here should start a new paragraph with no speaker"))))
 
@@ -609,6 +610,10 @@
     (add-message-listeners!)
     (restore-transcript! transcript-el)
     (init-transcript! transcript-el)))
+
+(when-not (:initialised @state)
+  (init-ui!)
+  (swap! state assoc :initialised true))
 
 (comment
 
