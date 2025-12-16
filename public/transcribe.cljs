@@ -356,15 +356,15 @@
   (when (audio-loaded?)
     (let [audio (dom/get-el "audio")
           pos (-> (get-audio-ts) (time/sec->ts false))]
-      (if (:paused @state)
-        (do
-          (log :debug "Playing audio from" pos)
-          (.play audio)
-          (swap! state assoc :paused false))
+      (if (:playing @state)
         (do
           (log :debug "Pausing audio at" pos)
           (.pause audio)
-          (swap! state assoc :paused true))))))
+          (swap! state assoc :playing false))
+        (do
+          (log :debug "Playing audio from" pos)
+          (.play audio)
+          (swap! state assoc :playing true))))))
 
 (defn seek! [delta]
   (when (audio-loaded?)
@@ -548,19 +548,19 @@
     (when transcript-url
       (dom/set-value! "#transcript-url" transcript-url))))
 
-(defn add-audio-listeners! []
-  (dom/add-listener! state "audio" "durationchange"
+(defn add-audio-listeners! [audio-el]
+  (dom/add-listener! state audio-el "durationchange"
                      #(let [src (or (:audio-filename @state) (:audio-url @state))
                             src-type (if (:audio-filename @state) "file" "URL")]
                         (log :debug "Audio loaded; duration:" (get-audio-duration))
                         (display-audio!)
                         (swap! state assoc :paused true)
                         (show-message! (str "Loaded audio from " src-type ": " src))))
-  (dom/add-listener! state "audio" "error"
+  (dom/add-listener! state audio-el "error"
                      handle-audio-error!)
-  (dom/add-listener! state "audio" "ratechange"
+  (dom/add-listener! state audio-el "ratechange"
                      display-audio-playback-rate!)
-  (dom/add-listener! state "audio" "timeupdate"
+  (dom/add-listener! state audio-el "timeupdate"
                      display-audio-ts!))
 
 (defn add-import-listeners! [transcript-el]
@@ -605,7 +605,7 @@
     (add-import-listeners!)
     (add-export-listeners! transcript-el)
     (add-input-listeners! transcript-el)
-    (add-audio-listeners!)
+    (add-audio-listeners! "audio")
     (add-key-listeners!)
     (add-message-listeners!)
     (restore-transcript! transcript-el)
