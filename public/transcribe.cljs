@@ -490,6 +490,16 @@
         (save-key! (transcript-span-id paragraph-num :ts) ts))
       (log :debug "Inserting timestamp here should start a new paragraph with no speaker"))))
 
+(defn remove-timestamp! []
+  (let [{:keys [paragraph-num offset in-speaker in-text]} (get-location)
+        p (get-transcript-p paragraph-num)
+        ts ""
+        ts-span (get-transcript-span paragraph-num :ts)]
+    (log :debug (str "Removing timestamp from paragraph " paragraph-num))
+    (dom/set-text! ts-span ts)
+    (dom/remove-class! ts-span (transcript-span-class :ts))
+    (save-key! (transcript-span-id paragraph-num :ts) ts)))
+
 (defn handle-audio-url-button! [_ev]
   (when-let [url (not-empty (dom/get-value "#audio-url"))]
     (open-audio-url! (dom/get-el "audio") url)))
@@ -506,7 +516,10 @@
 (defn handle-global-keys! [ev]
   (let [handle! (fn [f]
                   (log :debug "Key pressed:" (.-key ev))
-                  (f)
+                  (try
+                    (f)
+                    (catch :default e
+                      (log :error e)))
                   (.preventDefault ev))]
     (case (.-key ev)
       "Escape" (handle! play-pause!)
@@ -516,6 +529,8 @@
       "F4" (handle! speed-up!)
       "j" (when (.-ctrlKey ev)
             (handle! insert-timestamp!))
+      "k" (when (.-ctrlKey ev)
+            (handle! remove-timestamp!))
       :unmapped-key)))
 
 (defn init-transcript!
