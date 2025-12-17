@@ -64,3 +64,38 @@
   color: grey;
   font-style: italic;
 }
+
+#audio-controls {
+  display: flex;
+  justify-content: space-between;
+  width: 700px;
+}
+
+.audio-control {
+  display: flex;
+  align-items: center;
+  column-gap: 5px;
+  height: 3em;
+}
+
+.audio-control input {
+  height: 100%;
+  /* See https://angel-rs.github.io/css-color-filter-generator/ */
+  filter: brightness(0)
+          saturate(100%)
+          invert(9%)
+          sepia(100%)
+          saturate(6982%)
+          hue-rotate(246deg)
+          brightness(74%)
+          contrast(128%);
+}
+
+.audio-control span {
+  font-size: 1.5em;
+}
+
+#audio-rate {
+  margin-left: 10px;
+  margin-right: 10px;
+}

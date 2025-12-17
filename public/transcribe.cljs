@@ -247,7 +247,7 @@
   (display-audio-ts!)
   (display-audio-duration!)
   (display-audio-playback-rate!)
-  (dom/set-styles! (dom/get-el "#audio-controls") "display: inline"))
+  (dom/set-styles! (dom/get-el "#audio-controls") "display: flex;"))
 
 (defn restore-transcript! [target-el]
   (when-not (get-transcript-p 0)
@@ -360,10 +360,14 @@
         (do
           (log :debug "Pausing audio at" pos)
           (.pause audio)
+          (dom/set-styles! "#play-button" "display: block;")
+          (dom/set-styles! "#pause-button" "display: none;")
           (swap! state assoc :playing false))
         (do
           (log :debug "Playing audio from" pos)
           (.play audio)
+          (dom/set-styles! "#play-button" "display: none;")
+          (dom/set-styles! "#pause-button" "display: block;")
           (swap! state assoc :playing true))))))
 
 (defn seek! [delta]

@@ -33,7 +33,7 @@
 
     <h1>cljcastr transcribe</h1>
 
-    <div id="message" style="display: none">
+    <div id="message" style="display: none;">
     <span id="message-text"></span>
     <input id="close-message-button" type="image" alt="Close message"
       src="close-square-svgrepo-com.svg" />
@@ -58,11 +58,36 @@
       <button id="clear" type="button" value="Clear">Clear transcript</button>
     </div>
 
-    <div id="audio-controls" style="display: none">
+    <div id="audio-controls" style="display: none;">
       <audio preload="auto"></audio>
-      <div>
-        <span id="audio-ts">00:00</span> / <span id="audio-dur">00:00</span>
+      <div class="audio-control">
+        <span id="audio-ts">00:00</span>/<span id="audio-dur">00:00</span>
+      </div>
+      <div class="audio-control">
+        <input id="play-button" type="image" alt="Play" title="Play"
+          src="play-button.svg" />
+        <input id="pause-button" type="image" alt="Pause" title="Pause"
+          src="pause-button.svg" style="display: none;" />
+        <span>Esc</span>
+      </div>
+      <div class="audio-control">
+        <input id="rewind-button" type="image" alt="Rewind" title="Rewind"
+          src="rewind-button.svg" />
+        <span>F1</span>
+      </div>
+      <div class="audio-control">
+        <input id="fast-forward-button" type="image" alt="Fast Forward" title="Fast Forward"
+          src="fast-forward-button.svg" />
+        <span>F2</span>
+      </div>
+      <div class="audio-control">
+        <input id="slow-down-button" type="image" alt="Slow Down" title="Slow Down"
+          src="speed-meter.svg" />
+        <span>F3</span>
         <span id="audio-rate">1x</span>
+        <input id="speed-up-button" type="image" alt="Speed Up" title="Speed Up"
+          src="speed-meter.svg" style="transform: rotateY(180deg)" />
+        <span>F4</span>
       </div>
     </div>
 
@@ -71,5 +96,5 @@
   </div>
 
 </body>
-    
+
 </html>
