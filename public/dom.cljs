@@ -237,6 +237,23 @@
     (.removeAllRanges sel)
     (.addRange sel rng)))
 
+(defn move-cursor!
+  "Moves the cursor to the specified offset within the editable element
+   identified by `selector`. `selector` may also be an element."
+  [selector offset]
+  (let [el (get-el selector)
+        sel (js/window.getSelection)
+        rng (js/document.createRange)]
+    (if (= :end offset)
+      (do
+        (.selectNodeContents rng el)
+        (.collapse rng false))
+      (do
+        (.setStart rng el offset)
+        (.setEnd rng el offset)))
+    (.removeAllRanges sel)
+    (.addRange sel rng)))
+
 (defn add-listener!
   "Adds an event listener to the element specified by `selector` for events of
    type `event-type`, registering in the `state` atom. `selector` may also be an
