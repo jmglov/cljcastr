@@ -42,7 +42,8 @@
   "Returns inner text of the element identified by `selector`. `selector` may
    also be an element."
   [selector]
-  (.-innerText (get-el selector)))
+  (let [el (get-el selector)]
+    (or (.-textContent el) (.-innerText el))))
 
 (defn get-value
   "Returns value of the element identified by `selector`. `selector` may
@@ -170,7 +171,7 @@
   "Sets inner text of the element identified by `selector` to `text`. `selector`
    may also be an element."
   [selector text]
-  (set! (.-innerText (get-el selector)) text))
+  (set! (.-textContent (get-el selector)) text))
 
 (defn set-value!
   "Sets value of the element identified by `selector` to `v`. `selector` may
