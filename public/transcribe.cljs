@@ -421,6 +421,9 @@
       (when parent
         (get-paragraph-parent parent)))))
 
+(defn get-paragraph-span [p k]
+  (dom/get-el p (str ".transcript-" (name k))))
+
 (defn get-paragraph-num [el]
   (when-let [p (get-paragraph-parent el)]
     (->> p .-id (re-find #"\d+") js/parseInt)))
@@ -470,17 +473,29 @@
          cur-p (get-paragraph-parent el)
          new-p (create-transcript-p insertion-index
                                     {:ts ts
-                                     :text text})]
-     ;; The parent of this node is a <span> consisting of a text node containing
-     ;; the text before the cursor, a <br>, then a text node containing the text
-     ;; after the cursor. We have already put the text after the cursor into our
-     ;; new parapgraph element, so we should set the first text node as the only
-     ;; child of our parent node. After that, we can insert the new paragraph.
+                                     :text (subs text offset)})]
+     ;; If this paragraph results from enter being pressed, the parent of this
+     ;; node is a <span> consisting of a text node containing the text before the
+     ;; cursor, a <br>, then a text node containing the text after the cursor. We
+     ;; have already put the text after the cursor into our new parapgraph element,
+     ;; so we should set the first text node as the only child of our parent node.
      (dom/take-children! parent 1)
+
+     ;; If offset isn't 0, this paragraph comes from a timestamp being inserted
+     ;; in the middle of an existing paragraph. In this case, we need to lop off
+     ;; all the text after the offset in the current paragraph.
+     (when (pos? offset)
+       (log :debug "Removing text after offset" offset
+            "from paragraph" paragraph-num)
+       (-> (get-paragraph-span cur-p :text)
+           (dom/set-text! (subs text 0 offset))))
+
+     ;; Now we can go ahead and insert the new paragraph
      (log :debug "Inserting paragraph at index" insertion-index new-p)
      (inc-paragraph-ids! insertion-index)
      (dom/insert-child-after! cur-p new-p)
      (save-paragraph! new-p)
+
      ;; Focus the newly added text to move the cursor
      (-> (get-transcript-span insertion-index :text) .focus))))
 
@@ -518,7 +533,7 @@
       (remove-key! (transcript-span-id paragraph-num :ts)))))
 
 (defn insert-timestamp! []
-  (let [{:keys [paragraph-num offset in-speaker in-text]} (get-location)
+  (let [{:keys [paragraph-num offset in-speaker in-text] :as loc} (get-location)
         p (get-transcript-p paragraph-num)
         ts (time/sec->ts (get-audio-ts) true)]
     (if (or in-speaker (and in-text (= 0 offset)))
