@@ -31,6 +31,17 @@
     (apply js/console.log args))
   (last args))
 
+(defn clear-last-operation! []
+  (log :debug "Clearing last operation")
+  (swap! state dissoc :last-operation))
+
+(defn get-last-operation []
+  (:last-operation @state))
+
+(defn save-operation! [op]
+  (log :debug "Saving operation:" (clj->js op))
+  (swap! state assoc :last-operation op))
+
 (defn hide-message! []
   (dom/set-styles! "#message" "display: none"))
 
@@ -173,6 +184,21 @@
   (when-let [p (get-paragraph-parent el)]
     (->> p .-id (re-find #"\d+") js/parseInt)))
 
+(defn get-ts [p]
+  (-> (get-paragraph-span p :ts)
+      dom/get-text
+      not-empty))
+
+(defn get-speaker [p]
+  (-> (get-paragraph-span p :speaker)
+      dom/get-text
+      not-empty))
+
+(defn get-text [p]
+  (-> (get-paragraph-span p :text)
+      dom/get-text
+      not-empty))
+
 (defn get-current-paragraph-num []
   (-> js/window .getSelection .-anchorNode get-paragraph-num))
 
@@ -202,6 +228,60 @@
 (defn transcript-span-class [k]
   (str "transcript-" (name k)))
 
+(defn load-paragraph [i]
+  (log :debug "Loading paragraph" i "from local storage")
+  (->> [:ts :speaker :text]
+       (map (fn [k]
+              [k (load-key (transcript-span-id i k))]))
+       (into {})))
+
+(defn load-transcript []
+  (let [num-paragraphs (load-num-paragraphs)]
+    (when (pos-int? num-paragraphs)
+      (log :info "Loading transcript from local storage; restoring"
+           num-paragraphs "paragraphs")
+      (->> (range num-paragraphs)
+           (map load-paragraph)))))
+
+(declare combine-paragraphs!)
+
+(defn handle-text-keydown! [ev]
+  (let [k (.-key ev)
+        el (.-target ev)
+        p (get-paragraph-parent el)
+        op (get-last-operation)
+        {:keys [offset paragraph-num]} (get-location)]
+    (log :debug "Key pressed; offset:" offset ev)
+
+    (case k
+      ;; Don't allow enter to be pressed at the beginning of text spans to
+      ;; prevent blank paragraphs being inserted
+      "Enter"
+      (when (= 0 offset)
+        (.preventDefault ev))
+
+      ;; If backspace is pressed at the beginning of a text span in a paragraph
+      ;; without a speaker, combine with the previous paragraph
+      "Backspace"
+      (when (and (= 0 offset)
+                 (> paragraph-num 0)
+                 (not (get-speaker p)))
+        (combine-paragraphs! (dec paragraph-num) paragraph-num)
+        (.preventDefault ev))
+
+      "z"
+      (when (and (.-ctrlKey ev) op)
+        (case (:type op)
+          :insert-paragraph
+          (let [{:keys [new-paragraph-num]} op]
+            (log :debug "Undoing insert paragraph" new-paragraph-num)
+            (combine-paragraphs! (dec new-paragraph-num) new-paragraph-num)))
+
+        (clear-last-operation!)
+        (.preventDefault ev))
+
+      :ignored)))
+
 (defn create-transcript-span [i [k v]]
   (let [cls (transcript-span-class k)
         el (dom/create-el
@@ -229,13 +309,9 @@
                          #(when (= "Enter" (.-key %))
                             (.preventDefault %))))
 
-    ;; Don't allow enter to be pressed at the beginning of text spans to prevent
-    ;; blank paragraphs being inserted
     (when (= :text k)
-      (.addEventListener el "keydown"
-                         #(when (and (= "Enter" (.-key %))
-                                     (zero? (:offset (get-location))))
-                            (.preventDefault %))))
+      (.addEventListener el "keydown" handle-text-keydown!))
+
     el))
 
 (defn create-transcript-spans [i paragraph]
@@ -248,31 +324,14 @@
     (dom/set-children! p (create-transcript-spans i paragraph))
     p))
 
-(defn has-ts? [paragraph-num]
-  (get-transcript-span paragraph-num :ts))
-
-(defn has-speaker? [paragraph-num]
-  (get-transcript-span paragraph-num :speaker))
-
-(defn has-text? [paragraph-num]
-  (get-transcript-span paragraph-num :text))
+(defn update-paragraph! [i p-data]
+  (let [p (get-transcript-p i)]
+    (doseq [k [:ts :speaker :text]]
+      (dom/set-text! (get-transcript-span i k) (p-data k)))
+    p))
 
 (defn transcript->elements [transcript]
   (map-indexed create-transcript-p transcript))
-
-(defn load-paragraph [i]
-  (log :debug "Loading paragraph" i "from local storage")
-  {:ts (load-key (str "transcript-p-" i "-ts"))
-   :speaker (load-key (str "transcript-p-" i "-speaker"))
-   :text (load-key (str "transcript-p-" i "-text"))})
-
-(defn load-transcript []
-  (let [num-paragraphs (load-num-paragraphs)]
-    (when (pos-int? num-paragraphs)
-      (log :info "Loading transcript from local storage; restoring"
-           num-paragraphs "paragraphs")
-      (->> (range num-paragraphs)
-           (map load-paragraph)))))
 
 (defn clear-transcript! [target-el]
   (dom/clear-children! target-el))
@@ -478,40 +537,62 @@
 (defn dec-paragraph-ids! [start]
   (update-paragraph-ids! start :dec))
 
-(defn insert-paragraph!
-  ([loc]
-   (insert-paragraph! loc nil))
-  ([{:keys [el parent paragraph-num offset]} ts]
-   (let [text (-> (dom/get-text el) str/trim)
-         insertion-index (inc paragraph-num)
-         cur-p (get-paragraph-parent el)
-         new-p (create-transcript-p insertion-index
-                                    {:ts ts
-                                     :text (subs text offset)})]
-     ;; If this paragraph results from enter being pressed, the parent of this
-     ;; node is a <span> consisting of a text node containing the text before the
-     ;; cursor, a <br>, then a text node containing the text after the cursor. We
-     ;; have already put the text after the cursor into our new parapgraph element,
-     ;; so we should set the first text node as the only child of our parent node.
-     (dom/take-children! parent 1)
+(defn insert-paragraph! [el]
+  (let [cur-paragraph-num (get-paragraph-num el)
+        cur-p (get-paragraph-parent el)
+        new-paragraph-num (inc cur-paragraph-num)
+        text (-> el .-lastChild dom/get-text)
+        new-p (create-transcript-p new-paragraph-num {:text text})]
+    ;; The first text node stays with the current paragraph. We've already
+    ;; grabbed the text for the new paragraph.
+    (dom/take-children! el 1)
 
-     ;; If offset isn't 0, this paragraph comes from a timestamp being inserted
-     ;; in the middle of an existing paragraph. In this case, we need to lop off
-     ;; all the text after the offset in the current paragraph.
-     (when (pos? offset)
-       (log :debug "Removing text after offset" offset
-            "from paragraph" paragraph-num)
-       (-> (get-paragraph-span cur-p :text)
-           (dom/set-text! (subs text 0 offset))))
+    (log :debug "Inserting paragraph" new-paragraph-num new-p)
+    (inc-paragraph-ids! new-paragraph-num)
+    (dom/insert-child-after! cur-p new-p)
+    (save-paragraph! new-p)
 
-     ;; Now we can go ahead and insert the new paragraph
-     (log :debug "Inserting paragraph at index" insertion-index new-p)
-     (inc-paragraph-ids! insertion-index)
-     (dom/insert-child-after! cur-p new-p)
-     (save-paragraph! new-p)
+    ;; Remember this insertion so we can undo it
+    (save-operation! {:type :insert-paragraph
+                      :new-paragraph-num new-paragraph-num})
 
-     ;; Focus the newly added text to move the cursor
-     (-> (get-transcript-span insertion-index :text) .focus))))
+    (.focus (get-transcript-span new-paragraph-num :text))))
+
+
+(defn delete-paragraph! [paragraph-num]
+  (let [p (get-transcript-p paragraph-num)]
+    (dom/remove-child! p))
+  (dec-paragraph-ids! (inc paragraph-num)))
+
+(defn combine-paragraphs! [i j]
+  (if (= 1 (Math/abs (- i j)))
+    (let [prev-i (load-paragraph i)
+          prev-j (load-paragraph j)
+          i-text-span (get-transcript-span i :text)
+          j-text-span (get-transcript-span j :text)
+          new-text (->> [i-text-span j-text-span]
+                        (map dom/get-text)
+                        (str/join " "))]
+      (dom/set-text! i-text-span new-text)
+      (delete-paragraph! j)
+      (-> i-text-span .-firstChild (dom/move-cursor! :end))
+      (save-key! (transcript-span-id i :text) new-text)
+      (save-operation! {:type :combine-paragraphs
+                        :i i, :j j, :prev-i prev-i, :prev-j prev-j}))
+    (error! (str "Only adjacent paragraphs can be combined; "
+                 "attempted to combine " i " and " j))))
+
+(defn undo-combine-paragraphs! [i prev-i prev-j]
+  (log :debug "Undo combining paragraphs" i "and" (inc i)
+       (clj->js prev-i) (clj->js prev-j))
+  (let [j (inc i)
+        cur-p (get-transcript-p i)
+        new-p (create-transcript-p j prev-j)]
+    (inc-paragraph-ids! j)
+    (dom/insert-child-after! cur-p new-p)
+    (save-paragraph! new-p)
+    (->> prev-i (update-paragraph! i) save-paragraph!)
+    (clear-last-operation!)))
 
 ;; select-text! must be declared so it can refer to itself when unregistering
 (declare select-text!)
@@ -527,24 +608,21 @@
     (dom/clear-listeners! state el (.-type ev))))
 
 (defn handle-input! [ev]
-  (let [textbox-el (.-target ev)
+  (let [el (.-target ev)
         input-type (.-inputType ev)
-        {:keys [el parent paragraph-num] :as loc} (get-location)]
+        p (get-paragraph-parent el)]
     (log :debug "Got input event:" ev)
     (cond
-      (= "historyUndo" input-type)
-      (do
-        (log :debug "Undo; syncing full transcript to local storage")
-        (save-transcript! textbox-el))
-
       (= "insertParagraph" input-type)
-      (insert-paragraph! loc)
+      (insert-paragraph! el)
 
       :else
-      (save-key! (.-id parent) (dom/get-text el)))
-    (dom/remove-class! parent "example")
-    (when-not (has-ts? paragraph-num)
-      (remove-key! (transcript-span-id paragraph-num :ts)))))
+      (do
+        (save-key! (.-id el) (dom/get-text el))
+        (clear-last-operation!)))
+    (dom/remove-class! el "example")
+    (when-not (get-paragraph-span p :ts)
+      (remove-key! (transcript-span-id (get-paragraph-num p) :ts)))))
 
 (defn insert-timestamp! []
   (let [{:keys [paragraph-num offset in-speaker in-text] :as loc} (get-location)
