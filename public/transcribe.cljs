@@ -413,24 +413,17 @@
         (set! (.-id child) id)))
     (save-paragraph! p)))
 
-(defn insert-paragraph! [p]
-  (let [i (re-find #"\d+$" (.-id p))]
-    (if (not i)
-      (log :error "Could not parse paragraph number from element:" p)
-      (let [i (js/parseInt i)]
-        (dom/set-children! p (create-transcript-spans i {:ts "12:34:56", :text ""}))
-        (loop [p p
-               i (inc i)]
-          (when p
-            (set-paragraph-id! p i)
-            (recur (.-nextSibling p) (inc i))))
-        (inc-num-paragraphs!)))))
+(defn get-paragraph-parent [el]
+  (let [id (or (.-id el) "")
+        parent (.-parentNode el)]
+    (if (re-matches #"transcript-p-\d+$" id)
+      el
+      (when parent
+        (get-paragraph-parent parent)))))
 
 (defn get-paragraph-num [el]
-  (some #(->> (or (.-id %) "")  ; make sure re-matches gets a string
-              (re-matches #"transcript-p-(\d+)-.+")
-              second)
-        [el (.-parentNode el)]))
+  (when-let [p (get-paragraph-parent el)]
+    (->> p .-id (re-find #"\d+") js/parseInt)))
 
 (defn get-current-paragraph-num []
   (-> js/window .getSelection .-anchorNode get-paragraph-num))
@@ -441,9 +434,6 @@
         parent (.-parentNode el)
         paragraph-num (get-paragraph-num el)
         offset (.-anchorOffset sel)]
-    (log :debug "Selection:" sel)
-    (log :debug "Selected node:" el)
-    (log :debug "Parent node:" parent)
     {:sel sel
      :el el
      :parent parent
@@ -451,6 +441,48 @@
      :offset offset
      :in-speaker (speaker-span? parent)
      :in-text (text-span? parent)}))
+
+(defn update-paragraph-ids! [start op]
+  (let [f (case op
+            :inc inc
+            :dec dec)]
+    (loop [p (get-transcript-p start)
+           paragraph-num (f start)]
+      (if p
+        (do
+          (set-paragraph-id! p paragraph-num)
+          (save-paragraph! p)
+          (recur (.-nextSibling p) (inc paragraph-num)))
+        (save-num-paragraphs! paragraph-num)))))
+
+(defn inc-paragraph-ids! [start]
+  (update-paragraph-ids! start :inc))
+
+(defn dec-paragraph-ids! [start]
+  (update-paragraph-ids! start :dec))
+
+(defn insert-paragraph!
+  ([loc]
+   (insert-paragraph! loc nil))
+  ([{:keys [el parent paragraph-num offset]} ts]
+   (let [text (-> (dom/get-text el) str/trim)
+         insertion-index (inc paragraph-num)
+         cur-p (get-paragraph-parent el)
+         new-p (create-transcript-p insertion-index
+                                    {:ts ts
+                                     :text text})]
+     ;; The parent of this node is a <span> consisting of a text node containing
+     ;; the text before the cursor, a <br>, then a text node containing the text
+     ;; after the cursor. We have already put the text after the cursor into our
+     ;; new parapgraph element, so we should set the first text node as the only
+     ;; child of our parent node. After that, we can insert the new paragraph.
+     (dom/take-children! parent 1)
+     (log :debug "Inserting paragraph at index" insertion-index new-p)
+     (inc-paragraph-ids! insertion-index)
+     (dom/insert-child-after! cur-p new-p)
+     (save-paragraph! new-p)
+     ;; Focus the newly added text to move the cursor
+     (-> (get-transcript-span insertion-index :text) .focus))))
 
 ;; select-text! must be declared so it can refer to itself when unregistering
 (declare select-text!)
@@ -468,7 +500,7 @@
 (defn handle-input! [ev]
   (let [textbox-el (.-target ev)
         input-type (.-inputType ev)
-        {:keys [sel el parent paragraph-num offset in-speaker in-text]} (get-location)]
+        {:keys [el parent paragraph-num] :as loc} (get-location)]
     (log :debug "Got input event:" ev)
     (cond
       (= "historyUndo" input-type)
@@ -477,10 +509,10 @@
         (save-transcript! textbox-el))
 
       (= "insertParagraph" input-type)
-      (insert-paragraph! parent)
+      (insert-paragraph! loc)
 
       :else
-      (save-key! (.-id parent) (.-textContent el)))
+      (save-key! (.-id parent) (dom/get-text el)))
     (dom/remove-class! parent "example")
     (when-not (has-ts? paragraph-num)
       (remove-key! (transcript-span-id paragraph-num :ts)))))
