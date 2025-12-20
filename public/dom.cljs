@@ -83,6 +83,38 @@
   [selector child]
   (add-children! selector [child]))
 
+(defn insert-child-after!
+  "Inserts `child` after the element identified by `selector`. `selector` may
+   also be an element."
+  [selector child]
+  (let [sibling (get-el selector)
+        next-sibling (.-nextSibling sibling)
+        parent (.-parentNode sibling)]
+    (if next-sibling
+      (.insertBefore parent child next-sibling)
+      (add-child! parent child))))
+
+(defn insert-child-before!
+  "Inserts `child` before the element identified by `selector`. `selector` may
+   also be an element."
+  [selector child]
+  (let [sibling (get-el selector)
+        parent (.-parentNode sibling)]
+    (.insertBefore parent child sibling)))
+
+(defn insert-child!
+  "Inserts `child` as the nth child of the element identified by `selector`.
+   `selector` may also be an element. If the element has no children or `n` is
+   at the end of the list (or beyond), `child` will be added with `add-child!`."
+  [selector child n]
+  (let [n (if (neg? n) 0 n)
+        el (get-el selector)
+        children (seq (.-childNodes el))
+        num-children (count children)]
+    (if (or (empty? children) (>= n (dec num-children)))
+      (add-child! el child)
+      (.insertBefore el child (nth children n)))))
+
 (defn clear-children!
   "Removes all children from the element identified by `selector`. `selector`
    may also be an element."
