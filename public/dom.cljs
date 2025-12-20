@@ -53,18 +53,6 @@
   (when-let [el (get-el selector)]
     (.-value el)))
 
-(defn create-el
-  "Creates an element of type `el-type`. If the `:id` key is present in `opts`,
-   the id of the element will be set to it. If the `:class` key is present in
-   `opts`, that class will be added to it."
-  ([el-type]
-   (create-el el-type {}))
-  ([el-type opts]
-   (let [el (js/document.createElement el-type)]
-     (when (:id opts) (set! (.-id el) (:id opts)))
-     (when (:class opts) (-> el .-classList (.add (:class opts))))
-     el)))
-
 (defn get-children
   "Returns children of the element identified by `selector`. `selector` may
    also be an element."
@@ -154,7 +142,8 @@
   "Adds `classes` to the element identified by `selector`. `selector` may also be
    an element."
   [selector classes]
-  (let [el (get-el selector)]
+  (let [el (get-el selector)
+        classes (if (sequential? classes) classes [classes])]
     (doseq [cls classes]
       (-> el .-classList (.add cls)))))
 
@@ -236,6 +225,19 @@
     (.selectNodeContents rng el)
     (.removeAllRanges sel)
     (.addRange sel rng)))
+
+(defn create-el
+  "Creates an element of type `el-type`. If the `:id` key is present in `opts`,
+   the id of the element will be set to it. If the `:class` key is present in
+   `opts`, that class will be added to it."
+  ([el-type]
+   (create-el el-type {}))
+  ([el-type opts]
+   (let [el (js/document.createElement el-type)]
+     (when (:id opts) (set! (.-id el) (:id opts)))
+     (when (:class opts) (add-class! el (:class opts)))
+     (when (:classes opts) (add-classes! el (:classes opts)))
+     el)))
 
 (defn move-cursor!
   "Moves the cursor to the specified offset within the editable element
