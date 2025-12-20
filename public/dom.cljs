@@ -36,20 +36,22 @@
   "Returns inner HTML of the element identified by `selector`. `selector` may
    also be an element."
   [selector]
-  (.-innerHTML (get-el selector)))
+  (when-let [el (get-el selector)]
+    (.-innerHTML el)))
 
 (defn get-text
   "Returns inner text of the element identified by `selector`. `selector` may
    also be an element."
   [selector]
-  (let [el (get-el selector)]
+  (when-let [el (get-el selector)]
     (or (.-textContent el) (.-innerText el))))
 
 (defn get-value
   "Returns value of the element identified by `selector`. `selector` may
    also be an element."
   [selector]
-  (.-value (get-el selector)))
+  (when-let [el (get-el selector)]
+    (.-value el)))
 
 (defn create-el
   "Creates an element of type `el-type`. If the `:id` key is present in `opts`,
@@ -67,7 +69,8 @@
   "Returns children of the element identified by `selector`. `selector` may
    also be an element."
   [selector]
-  (-> (get-el selector) .-childNodes seq))
+  (when-let [el (get-el selector)]
+    (-> el .-childNodes seq)))
 
 (defn add-children!
   "Adds list of `children` to the element identified by `selector`. `selector`
