@@ -283,19 +283,16 @@
       :ignored)))
 
 (defn create-transcript-span [i [k v]]
-  (let [cls (transcript-span-class k)
-        el (dom/create-el
+  (let [el (dom/create-el
             "span"
             {:id (transcript-span-id i k)
-             :class cls})]
+             :classes ["transcript" (transcript-span-class k)]})]
     (set! (.-innerText el) (or v ""))
     (dom/set-attribute! el "contenteditable" (if (= :ts k) "false" "true"))
 
-    ;; Remove the timestamp class from empty ts spans, and add a click handler
-    ;; to all ts spans that seeks to the specified timestamp, if any.
+    ;; Add a click handler to all ts spans that seeks to the specified
+    ;; timestamp, if any.
     (when (= :ts k)
-      (when (or (nil? v) (re-matches #"\s*" v))
-        (dom/remove-class! el cls))
       (.addEventListener el "click"
                          (fn [ev]
                            (when-let [ts (-> ev .-target dom/get-text) not-empty]

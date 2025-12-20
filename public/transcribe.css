@@ -64,7 +64,6 @@ span.key {
 }
 
 #textbox span {
-  padding: 5px;
   outline: 0px solid transparent;
   line-height: 1.5em;
 }
@@ -74,6 +73,8 @@ span.key {
 }
 
 .transcript-ts {
+  display: inline-block;
+  min-width: 50px;
   color: blue;
   cursor: pointer;
   font-weight: bold;
@@ -82,6 +83,8 @@ span.key {
 }
 
 .transcript-speaker {
+  display: inline-block;
+  min-width: 75px;
   font-weight: bold;
   margin-right: 0.5em;
 }
