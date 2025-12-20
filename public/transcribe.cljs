@@ -177,6 +177,10 @@
                            (when-let [ts (-> ev .-target dom/get-text) not-empty]
                              (log :debug "Seeking audio to timestamp:" ts)
                              (set-audio-ts! ts)))))
+    (when (= :speaker k)
+      (.addEventListener el "keydown"
+                         #(when (= "Enter" (.-key %))
+                            (.preventDefault %))))
     el))
 
 (defn create-transcript-spans [i paragraph]
