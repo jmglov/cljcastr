@@ -45,6 +45,12 @@
 
 #textbox span {
   padding: 5px;
+  outline: 0px solid transparent;
+  line-height: 1.5em;
+}
+
+#textbox span:focus {
+  background-color: lightyellow;
 }
 
 .transcript-ts {
