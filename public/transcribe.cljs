@@ -143,11 +143,52 @@
   (-> (edn/read-string text)
       :transcript))
 
+(defn ts-span? [el]
+  (re-matches #"transcript-p-\d+-ts" (.-id el)))
+
+(defn speaker-span? [el]
+  (re-matches #"transcript-p-\d+-speaker" (.-id el)))
+
+(defn text-span? [el]
+  (re-matches #"transcript-p-\d+-text" (.-id el)))
+
 (defn transcript-p-id [i]
   (str "transcript-p-" i))
 
 (defn get-transcript-p [i]
   (dom/get-el (str "#" (transcript-p-id i))))
+
+(defn get-paragraph-parent [el]
+  (let [id (or (.-id el) "")
+        parent (.-parentNode el)]
+    (if (re-matches #"transcript-p-\d+$" id)
+      el
+      (when parent
+        (get-paragraph-parent parent)))))
+
+(defn get-paragraph-span [p k]
+  (dom/get-el p (str ".transcript-" (name k))))
+
+(defn get-paragraph-num [el]
+  (when-let [p (get-paragraph-parent el)]
+    (->> p .-id (re-find #"\d+") js/parseInt)))
+
+(defn get-current-paragraph-num []
+  (-> js/window .getSelection .-anchorNode get-paragraph-num))
+
+(defn get-location []
+  (let [sel (.getSelection js/window)
+        el (.-anchorNode sel)
+        parent (.-parentNode el)
+        paragraph-num (get-paragraph-num el)
+        offset (.-anchorOffset sel)]
+    {:sel sel
+     :el el
+     :parent parent
+     :paragraph-num paragraph-num
+     :offset offset
+     :in-speaker (speaker-span? parent)
+     :in-text (text-span? parent)}))
 
 (defn transcript-span-id [i k]
   (str "transcript-p-" i "-" (name k)))
@@ -169,6 +210,9 @@
              :class cls})]
     (set! (.-innerText el) (or v ""))
     (dom/set-attribute! el "contenteditable" (if (= :ts k) "false" "true"))
+
+    ;; Remove the timestamp class from empty ts spans, and add a click handler
+    ;; to all ts spans that seeks to the specified timestamp, if any.
     (when (= :ts k)
       (when (or (nil? v) (re-matches #"\s*" v))
         (dom/remove-class! el cls))
@@ -177,9 +221,20 @@
                            (when-let [ts (-> ev .-target dom/get-text) not-empty]
                              (log :debug "Seeking audio to timestamp:" ts)
                              (set-audio-ts! ts)))))
+
+    ;; Don't allow enter to be pressed in speaker spans to prevent new
+    ;; paragraphs being inserted
     (when (= :speaker k)
       (.addEventListener el "keydown"
                          #(when (= "Enter" (.-key %))
+                            (.preventDefault %))))
+
+    ;; Don't allow enter to be pressed at the beginning of text spans to prevent
+    ;; blank paragraphs being inserted
+    (when (= :text k)
+      (.addEventListener el "keydown"
+                         #(when (and (= "Enter" (.-key %))
+                                     (zero? (:offset (get-location))))
                             (.preventDefault %))))
     el))
 
@@ -192,15 +247,6 @@
   (let [p (dom/create-el "p" {:id (str "transcript-p-" i)})]
     (dom/set-children! p (create-transcript-spans i paragraph))
     p))
-
-(defn ts-span? [el]
-  (re-matches #"transcript-p-\d+-ts" (.-id el)))
-
-(defn speaker-span? [el]
-  (re-matches #"transcript-p-\d+-speaker" (.-id el)))
-
-(defn text-span? [el]
-  (re-matches #"transcript-p-\d+-text" (.-id el)))
 
 (defn has-ts? [paragraph-num]
   (get-transcript-span paragraph-num :ts))
@@ -413,38 +459,6 @@
         (set! (.-id child) id)))
     (save-paragraph! p)))
 
-(defn get-paragraph-parent [el]
-  (let [id (or (.-id el) "")
-        parent (.-parentNode el)]
-    (if (re-matches #"transcript-p-\d+$" id)
-      el
-      (when parent
-        (get-paragraph-parent parent)))))
-
-(defn get-paragraph-span [p k]
-  (dom/get-el p (str ".transcript-" (name k))))
-
-(defn get-paragraph-num [el]
-  (when-let [p (get-paragraph-parent el)]
-    (->> p .-id (re-find #"\d+") js/parseInt)))
-
-(defn get-current-paragraph-num []
-  (-> js/window .getSelection .-anchorNode get-paragraph-num))
-
-(defn get-location []
-  (let [sel (.getSelection js/window)
-        el (.-anchorNode sel)
-        parent (.-parentNode el)
-        paragraph-num (get-paragraph-num el)
-        offset (.-anchorOffset sel)]
-    {:sel sel
-     :el el
-     :parent parent
-     :paragraph-num paragraph-num
-     :offset offset
-     :in-speaker (speaker-span? parent)
-     :in-text (text-span? parent)}))
-
 (defn update-paragraph-ids! [start op]
   (let [f (case op
             :inc inc
@@ -543,7 +557,7 @@
         (dom/set-text! ts-span ts)
         (dom/add-class! ts-span (transcript-span-class :ts))
         (save-key! (transcript-span-id paragraph-num :ts) ts))
-      (log :debug "Inserting timestamp here should start a new paragraph with no speaker"))))
+      (insert-paragraph! loc ts))))
 
 (defn remove-timestamp! []
   (let [{:keys [paragraph-num offset in-speaker in-text]} (get-location)
