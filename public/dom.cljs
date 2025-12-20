@@ -135,6 +135,13 @@
   [selector child]
   (set-children! selector [child]))
 
+(defn take-children!
+  "Sets children of the element identified by `selector` to its first `n`
+   children. `selector` may also be an element."
+  [selector n]
+  (let [el (get-el selector)]
+    (->> el .-childNodes seq (take n) (set-children! el))))
+
 (defn add-classes!
   "Adds `classes` to the element identified by `selector`. `selector` may also be
    an element."
