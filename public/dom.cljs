@@ -142,6 +142,11 @@
   (let [el (get-el selector)]
     (->> el .-childNodes seq (take n) (set-children! el))))
 
+(defn remove-child!
+  "Removes `child` from its parent."
+  [child]
+  (.removeChild (.-parentNode child) child))
+
 (defn add-classes!
   "Adds `classes` to the element identified by `selector`. `selector` may also be
    an element."
