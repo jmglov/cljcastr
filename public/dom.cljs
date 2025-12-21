@@ -53,6 +53,13 @@
   (when-let [el (get-el selector)]
     (.-value el)))
 
+(defn get-child
+  "Returns the `n`th child of the element identified by `selector`. `selector`
+   may also be an element. If `n` is out of bounds, returns `nil`."
+  [selector n]
+  (when-let [el (get-el selector)]
+    (->> el .-childNodes seq (drop n) first)))
+
 (defn get-children
   "Returns children of the element identified by `selector`. `selector` may
    also be an element."
