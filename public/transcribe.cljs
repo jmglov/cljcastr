@@ -108,11 +108,12 @@
   (let [n (load-num-paragraphs)]
     (save-num-paragraphs! (inc n))))
 
+(defn save-el! [el]
+  (save-key! (.-id el) (dom/get-text el)))
+
 (defn save-paragraph! [p-el]
-  (doseq [el (.-childNodes p-el)
-          :let [k (.-id el)
-                v (.-textContent el)]]
-    (save-key! k v)))
+  (doseq [el (.-childNodes p-el)]
+    (save-el! el)))
 
 (defn load-transcript-filename []
   (load-key "transcript-filename"))
@@ -155,13 +156,16 @@
       :transcript))
 
 (defn ts-el? [el]
-  (re-matches #"transcript-p-\d+-ts" (.-id el)))
+  (when-let [id (.-id el)]
+    (re-matches #"transcript-p-\d+-ts" id)))
 
 (defn speaker-el? [el]
-  (re-matches #"transcript-p-\d+-speaker" (.-id el)))
+  (when-let [id (.-id el)]
+    (re-matches #"transcript-p-\d+-speaker" id)))
 
 (defn text-el? [el]
-  (re-matches #"transcript-p-\d+-text" (.-id el)))
+  (when-let [id (.-id el)]
+    (re-matches #"transcript-p-\d+-text" id)))
 
 (defn transcript-p-id [i]
   (str "transcript-p-" i))
@@ -205,16 +209,18 @@
 (defn get-location []
   (let [sel (.getSelection js/window)
         el (.-anchorNode sel)
+        offset (.-anchorOffset sel)
         parent (.-parentNode el)
-        paragraph-num (get-paragraph-num el)
-        offset (.-anchorOffset sel)]
+        paragraph (get-paragraph-parent el)
+        paragraph-num (get-paragraph-num paragraph)]
     {:sel sel
      :el el
      :parent parent
+     :paragraph paragraph
      :paragraph-num paragraph-num
      :offset offset
-     :in-speaker (speaker-el? parent)
-     :in-text (text-el? parent)}))
+     :in-speaker (some speaker-el? [el parent])
+     :in-text (some text-el? [el parent])}))
 
 (defn transcript-el-id [i k]
   (str "transcript-p-" i "-" (name k)))
@@ -535,28 +541,36 @@
 (defn dec-paragraph-ids! [start]
   (update-paragraph-ids! start :dec))
 
-(defn insert-paragraph! [el]
+(defn insert-paragraph! [{:keys [cur-text cur-p new-paragraph-num new-p]}]
+  ;; Update text of current paragraph
+  (let [el (get-paragraph-el cur-p :text)]
+    (dom/set-text! el cur-text)
+    (save-el! el))
+
+  ;; Insert the new paragraph
+  (log :debug "Inserting paragraph" new-paragraph-num new-p)
+  (inc-paragraph-ids! new-paragraph-num)
+  (dom/insert-child-after! cur-p new-p)
+  (save-paragraph! new-p)
+
+  ;; Remember this insertion so we can undo it
+  (save-operation! {:type :insert-paragraph
+                    :new-paragraph-num new-paragraph-num})
+
+  (.focus (get-transcript-el new-paragraph-num :text)))
+
+(defn insert-paragraph-from-input! [el]
   (let [cur-paragraph-num (get-paragraph-num el)
         cur-text (-> el (dom/get-child 0) dom/get-text str/trim)
         cur-p (get-paragraph-parent el)
         new-paragraph-num (inc cur-paragraph-num)
         new-text (-> el .-lastChild dom/get-text str/trim)
         new-p (create-transcript-p new-paragraph-num {:text new-text})]
-    ;; Update this paragraph with the text before the insertion point
-    (dom/set-text! el cur-text)
-    (save-paragraph! cur-p)
-
-    ;; Insert the new paragraph
-    (log :debug "Inserting paragraph" new-paragraph-num new-p)
-    (inc-paragraph-ids! new-paragraph-num)
-    (dom/insert-child-after! cur-p new-p)
-    (save-paragraph! new-p)
-
-    ;; Remember this insertion so we can undo it
-    (save-operation! {:type :insert-paragraph
-                      :new-paragraph-num new-paragraph-num})
-
-    (.focus (get-transcript-el new-paragraph-num :text))))
+    (insert-paragraph! {:el el
+                        :cur-text cur-text
+                        :cur-p cur-p
+                        :new-paragraph-num new-paragraph-num
+                        :new-p new-p})))
 
 
 (defn delete-paragraph! [paragraph-num]
@@ -614,7 +628,7 @@
     (log :debug "Got input event:" ev)
     (cond
       (= "insertParagraph" input-type)
-      (insert-paragraph! el)
+      (insert-paragraph-from-input! el)
 
       :else
       (do
@@ -625,17 +639,24 @@
       (remove-key! (transcript-el-id (get-paragraph-num p) :ts)))))
 
 (defn insert-timestamp! []
-  (let [{:keys [paragraph-num offset in-speaker in-text] :as loc} (get-location)
-        p (get-transcript-p paragraph-num)
+  (let [{:keys [in-speaker in-text offset] :as loc} (get-location)
         ts (time/sec->ts (get-audio-ts) true)]
     (if (or in-speaker (and in-text (= 0 offset)))
-      (let [ts-el (get-transcript-el paragraph-num :ts)]
-        (log :debug (str "Setting timestamp to " ts
-                         " for paragraph " paragraph-num))
+      (let [{:keys [paragraph paragraph-num]} loc
+            ts-el (get-paragraph-el paragraph :ts)]
+        (log :debug "Adding timestamp to paragraph" paragraph-num)
         (dom/set-text! ts-el ts)
-        (dom/add-class! ts-el (transcript-el-class :ts))
-        (save-key! (transcript-el-id paragraph-num :ts) ts))
-      (insert-paragraph! loc ts))))
+        (save-el! ts-el))
+      (let [{:keys [el paragraph paragraph-num]} loc
+            cur-text (-> el dom/get-text (subs 0 offset) str/trim)
+            new-text (-> el dom/get-text (subs offset) str/trim)
+            new-paragraph-num (inc paragraph-num)]
+        (insert-paragraph!
+         {:cur-text cur-text
+          :cur-p paragraph
+          :new-paragraph-num new-paragraph-num
+          :new-p (create-transcript-p new-paragraph-num
+                                      {:ts ts, :text new-text})})))))
 
 (defn remove-timestamp! []
   (let [{:keys [paragraph-num offset in-speaker in-text]} (get-location)
