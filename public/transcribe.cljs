@@ -281,7 +281,19 @@
           :insert-paragraph
           (let [{:keys [new-paragraph-num]} op]
             (log :debug "Undoing insert paragraph" new-paragraph-num)
-            (combine-paragraphs! (dec new-paragraph-num) new-paragraph-num)))
+            (combine-paragraphs! (dec new-paragraph-num) new-paragraph-num))
+
+          :insert-timestamp
+          (let [{:keys [paragraph-num]} op]
+            (log :debug "Undoing insert timestamp for paragraph" paragraph-num)
+            (-> (get-transcript-el paragraph-num :ts)
+                (dom/set-text! "")))
+
+          :remove-timestamp
+          (let [{:keys [paragraph-num ts]} op]
+            (log :debug "Undoing insert timestamp for paragraph" paragraph-num)
+            (-> (get-transcript-el paragraph-num :ts)
+                (dom/set-text! ts))))
 
         (clear-last-operation!)
         (.preventDefault ev))
@@ -646,7 +658,9 @@
             ts-el (get-paragraph-el paragraph :ts)]
         (log :debug "Adding timestamp to paragraph" paragraph-num)
         (dom/set-text! ts-el ts)
-        (save-el! ts-el))
+        (save-el! ts-el)
+        (save-operation! {:type :insert-timestamp
+                          :paragraph-num paragraph-num}))
       (let [{:keys [el paragraph paragraph-num]} loc
             cur-text (-> el dom/get-text (subs 0 offset) str/trim)
             new-text (-> el dom/get-text (subs offset) str/trim)
@@ -660,10 +674,14 @@
 
 (defn remove-timestamp! []
   (let [{:keys [paragraph paragraph-num]} (get-location)
-        ts-el (get-paragraph-el paragraph :ts)]
+        ts-el (get-paragraph-el paragraph :ts)
+        ts (dom/get-text ts-el)]
     (log :debug "Removing timestamp from paragraph" paragraph-num)
     (dom/set-text! ts-el "")
-    (save-el! ts-el)))
+    (save-el! ts-el)
+    (save-operation! {:type :remove-timestamp
+                      :paragraph-num paragraph-num
+                      :ts ts})))
 
 (defn handle-audio-url-button! [_ev]
   (when-let [url (not-empty (dom/get-value "#audio-url"))]
