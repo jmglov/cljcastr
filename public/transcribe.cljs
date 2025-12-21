@@ -659,14 +659,11 @@
                                       {:ts ts, :text new-text})})))))
 
 (defn remove-timestamp! []
-  (let [{:keys [paragraph-num offset in-speaker in-text]} (get-location)
-        p (get-transcript-p paragraph-num)
-        ts ""
-        ts-el (get-transcript-el paragraph-num :ts)]
-    (log :debug (str "Removing timestamp from paragraph " paragraph-num))
-    (dom/set-text! ts-el ts)
-    (dom/remove-class! ts-el (transcript-el-class :ts))
-    (save-key! (transcript-el-id paragraph-num :ts) ts)))
+  (let [{:keys [paragraph paragraph-num]} (get-location)
+        ts-el (get-paragraph-el paragraph :ts)]
+    (log :debug "Removing timestamp from paragraph" paragraph-num)
+    (dom/set-text! ts-el "")
+    (save-el! ts-el)))
 
 (defn handle-audio-url-button! [_ev]
   (when-let [url (not-empty (dom/get-value "#audio-url"))]
