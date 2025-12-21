@@ -537,14 +537,16 @@
 
 (defn insert-paragraph! [el]
   (let [cur-paragraph-num (get-paragraph-num el)
+        cur-text (-> el (dom/get-child 0) dom/get-text str/trim)
         cur-p (get-paragraph-parent el)
         new-paragraph-num (inc cur-paragraph-num)
-        text (-> el .-lastChild dom/get-text)
-        new-p (create-transcript-p new-paragraph-num {:text text})]
-    ;; The first text node stays with the current paragraph. We've already
-    ;; grabbed the text for the new paragraph.
-    (dom/take-children! el 1)
+        new-text (-> el .-lastChild dom/get-text str/trim)
+        new-p (create-transcript-p new-paragraph-num {:text new-text})]
+    ;; Update this paragraph with the text before the insertion point
+    (dom/set-text! el cur-text)
+    (save-paragraph! cur-p)
 
+    ;; Insert the new paragraph
     (log :debug "Inserting paragraph" new-paragraph-num new-p)
     (inc-paragraph-ids! new-paragraph-num)
     (dom/insert-child-after! cur-p new-p)
