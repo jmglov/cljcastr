@@ -60,33 +60,37 @@ span.key {
   margin: 5px;
   min-height: 2em;
   outline: solid thin;
-  padding: 5px;
 }
 
-#textbox span {
-  outline: 0px solid transparent;
-  line-height: 1.5em;
+.transcript-p {
+  display: flex;
+  column-gap: 0.4em;
 }
 
-#textbox span:focus {
+.transcript {
+  padding: 0.25em;
+}
+
+div.transcript:focus {
+  outline: thin solid;
   background-color: lightyellow;
 }
 
 .transcript-ts {
   display: inline-block;
-  min-width: 50px;
+  min-width: 4em;
+  max-width: 4em;
   color: blue;
   cursor: pointer;
   font-weight: bold;
-  margin-right: 0.5em;
   text-decoration: underline;
 }
 
 .transcript-speaker {
   display: inline-block;
-  min-width: 75px;
+  min-width: 5em;
+  max-width: 5em;
   font-weight: bold;
-  margin-right: 0.5em;
 }
 
 .example {

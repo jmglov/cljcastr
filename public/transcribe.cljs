@@ -284,7 +284,7 @@
 
 (defn create-transcript-span [i [k v]]
   (let [el (dom/create-el
-            "span"
+            "div"
             {:id (transcript-span-id i k)
              :classes ["transcript" (transcript-span-class k)]})]
     (set! (.-innerText el) (or v ""))
@@ -317,7 +317,8 @@
        (remove nil?)))
 
 (defn create-transcript-p [i paragraph]
-  (let [p (dom/create-el "p" {:id (str "transcript-p-" i)})]
+  (let [p (dom/create-el "div" {:id (str "transcript-p-" i)
+                                :class "transcript-p"})]
     (dom/set-children! p (create-transcript-spans i paragraph))
     p))
 
