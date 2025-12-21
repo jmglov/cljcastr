@@ -13,7 +13,7 @@
             [clojure.string :as str]
             [promesa.core :as p]))
 
-(defonce state (atom {}))
+(defonce state (atom {:ops []}))
 
 (def seek-duration-sec 1.0)
 
@@ -31,16 +31,15 @@
     (apply js/console.log args))
   (last args))
 
-(defn clear-last-operation! []
-  (log :debug "Clearing last operation")
-  (swap! state dissoc :last-operation))
-
-(defn get-last-operation []
-  (:last-operation @state))
-
 (defn save-operation! [op]
   (log :debug "Saving operation:" (clj->js op))
-  (swap! state assoc :last-operation op))
+  (swap! state update :ops #(-> op (cons %) vec))
+  op)
+
+(defn pop-operation! []
+  (let [[op & ops] (:ops @state)]
+    (swap! state assoc :ops (vec ops))
+    op))
 
 (defn hide-message! []
   (dom/set-styles! "#message" "display: none"))
@@ -255,7 +254,6 @@
   (let [k (.-key ev)
         el (.-target ev)
         p (get-paragraph-parent el)
-        op (get-last-operation)
         {:keys [offset paragraph-num]} (get-location)]
     (log :debug "Key pressed; offset:" offset ev)
 
@@ -276,27 +274,28 @@
         (.preventDefault ev))
 
       "z"
-      (when (and (.-ctrlKey ev) op)
-        (case (:type op)
-          :insert-paragraph
-          (let [{:keys [new-paragraph-num]} op]
-            (log :debug "Undoing insert paragraph" new-paragraph-num)
-            (combine-paragraphs! (dec new-paragraph-num) new-paragraph-num))
+      (when (.-ctrlKey ev)
+        (when-let [op (pop-operation!)]
+          (case (:type op)
+            :insert-paragraph
+            (let [{:keys [new-paragraph-num]} op]
+              (log :debug "Undoing insert paragraph" new-paragraph-num)
+              (combine-paragraphs! (dec new-paragraph-num) new-paragraph-num))
 
-          :insert-timestamp
-          (let [{:keys [paragraph-num]} op]
-            (log :debug "Undoing insert timestamp for paragraph" paragraph-num)
-            (-> (get-transcript-el paragraph-num :ts)
-                (dom/set-text! "")))
+            :insert-timestamp
+            (let [{:keys [paragraph-num]} op]
+              (log :debug "Undoing insert timestamp for paragraph" paragraph-num)
+              (-> (get-transcript-el paragraph-num :ts)
+                  (dom/set-text! "")))
 
-          :remove-timestamp
-          (let [{:keys [paragraph-num ts]} op]
-            (log :debug "Undoing insert timestamp for paragraph" paragraph-num)
-            (-> (get-transcript-el paragraph-num :ts)
-                (dom/set-text! ts))))
+            :remove-timestamp
+            (let [{:keys [paragraph-num ts]} op]
+              (log :debug "Undoing insert timestamp for paragraph" paragraph-num)
+              (-> (get-transcript-el paragraph-num :ts)
+                  (dom/set-text! ts))))
 
-        (clear-last-operation!)
-        (.preventDefault ev))
+          ;; Stop the undo from propagating
+          (.preventDefault ev)))
 
       :ignored)))
 
@@ -602,9 +601,7 @@
       (dom/set-text! i-text-el new-text)
       (delete-paragraph! j)
       (-> i-text-el .-firstChild (dom/move-cursor! :end))
-      (save-key! (transcript-el-id i :text) new-text)
-      (save-operation! {:type :combine-paragraphs
-                        :i i, :j j, :prev-i prev-i, :prev-j prev-j}))
+      (save-key! (transcript-el-id i :text) new-text))
     (error! (str "Only adjacent paragraphs can be combined; "
                  "attempted to combine " i " and " j))))
 
@@ -618,7 +615,7 @@
     (dom/insert-child-after! cur-p new-p)
     (save-paragraph! new-p)
     (->> prev-i (update-paragraph! i) save-paragraph!)
-    (clear-last-operation!)))
+    (pop-operation!)))
 
 ;; select-text! must be declared so it can refer to itself when unregistering
 (declare select-text!)
@@ -645,7 +642,7 @@
       :else
       (do
         (save-key! (.-id el) (dom/get-text el))
-        (clear-last-operation!)))
+        (pop-operation!)))
     (dom/remove-class! el "example")
     (when-not (get-paragraph-el p :ts)
       (remove-key! (transcript-el-id (get-paragraph-num p) :ts)))))
