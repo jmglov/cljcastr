@@ -249,6 +249,7 @@
            (map load-paragraph)))))
 
 (declare combine-paragraphs!)
+(declare undo-combine-paragraphs!)
 
 (defn handle-text-keydown! [ev]
   (let [k (.-key ev)
@@ -277,10 +278,14 @@
       (when (.-ctrlKey ev)
         (when-let [op (pop-operation!)]
           (case (:type op)
+            :combine-paragraphs
+            (undo-combine-paragraphs! op)
+
             :insert-paragraph
             (let [{:keys [new-paragraph-num]} op]
               (log :debug "Undoing insert paragraph" new-paragraph-num)
-              (combine-paragraphs! (dec new-paragraph-num) new-paragraph-num))
+              (combine-paragraphs! (dec new-paragraph-num) new-paragraph-num
+                                   {:save-operation false}))
 
             :insert-timestamp
             (let [{:keys [paragraph-num]} op]
@@ -589,23 +594,29 @@
     (dom/remove-child! p))
   (dec-paragraph-ids! (inc paragraph-num)))
 
-(defn combine-paragraphs! [i j]
-  (if (= 1 (Math/abs (- i j)))
-    (let [prev-i (load-paragraph i)
-          prev-j (load-paragraph j)
-          i-text-el (get-transcript-el i :text)
-          j-text-el (get-transcript-el j :text)
-          new-text (->> [i-text-el j-text-el]
-                        (map dom/get-text)
-                        (str/join " "))]
-      (dom/set-text! i-text-el new-text)
-      (delete-paragraph! j)
-      (-> i-text-el .-firstChild (dom/move-cursor! :end))
-      (save-key! (transcript-el-id i :text) new-text))
-    (error! (str "Only adjacent paragraphs can be combined; "
-                 "attempted to combine " i " and " j))))
+(defn combine-paragraphs!
+  ([i j]
+   (combine-paragraphs! i j {:save-operation true}))
+  ([i j {:keys [save-operation]}]
+   (if (= 1 (Math/abs (- i j)))
+     (let [prev-i (load-paragraph i)
+           prev-j (load-paragraph j)
+           i-text-el (get-transcript-el i :text)
+           j-text-el (get-transcript-el j :text)
+           new-text (->> [i-text-el j-text-el]
+                         (map dom/get-text)
+                         (str/join " "))]
+       (dom/set-text! i-text-el new-text)
+       (delete-paragraph! j)
+       (-> i-text-el .-firstChild (dom/move-cursor! :end))
+       (save-key! (transcript-el-id i :text) new-text)
+       (when save-operation
+         (save-operation! {:type :combine-paragraphs
+                           :i i, :j j, :prev-i prev-i, :prev-j prev-j})))
+     (error! (str "Only adjacent paragraphs can be combined; "
+                  "attempted to combine " i " and " j)))))
 
-(defn undo-combine-paragraphs! [i prev-i prev-j]
+(defn undo-combine-paragraphs! [{:keys [i prev-i prev-j] :as _op}]
   (log :debug "Undo combining paragraphs" i "and" (inc i)
        (clj->js prev-i) (clj->js prev-j))
   (let [j (inc i)
@@ -614,8 +625,7 @@
     (inc-paragraph-ids! j)
     (dom/insert-child-after! cur-p new-p)
     (save-paragraph! new-p)
-    (->> prev-i (update-paragraph! i) save-paragraph!)
-    (pop-operation!)))
+    (->> prev-i (update-paragraph! i) save-paragraph!)))
 
 ;; select-text! must be declared so it can refer to itself when unregistering
 (declare select-text!)
