@@ -41,8 +41,17 @@
     (swap! state assoc :ops (vec ops))
     op))
 
+(defn resize-textbox! []
+  (let [window-height (.-innerHeight js/window)
+        el (dom/get-el "#textbox")
+        top (-> el .getBoundingClientRect .-top)
+        el-height (- window-height top 20)]
+    (log :debug "Window resized; setting textbox height to" el-height)
+    (dom/set-styles! el (str "height: " el-height "px;"))))
+
 (defn hide-message! []
-  (dom/set-styles! "#message" "display: none"))
+  (dom/set-styles! "#message" "display: none")
+  (resize-textbox!))
 
 (defn show-message!
   ([msg]
@@ -53,13 +62,11 @@
          text-el (dom/get-el "#message-text")]
      (dom/set-class! message-el (name msg-type))
      (dom/set-text! text-el msg)
-     (dom/set-styles! message-el "display: flex"))))
+     (dom/set-styles! message-el "display: flex"))
+   (resize-textbox!)))
 
 (defn error! [msg]
   (show-message! :error msg))
-
-(defn hide-message! []
-  (-> (dom/get-el "#message") (dom/set-styles! "display: none")))
 
 (defn get-audio-duration []
   (-> (dom/get-el "audio") .-duration))
@@ -766,7 +773,8 @@
                         (log :debug "Audio loaded; duration:" (get-audio-duration))
                         (display-audio!)
                         (swap! state assoc :paused true)
-                        (show-message! (str "Loaded audio from " src-type ": " src))))
+                        (show-message! (str "Loaded audio from " src-type ": " src))
+                        (resize-textbox!)))
   (dom/add-listener! state audio-el "error"
                      handle-audio-error!)
   (dom/add-listener! state audio-el "ratechange"
@@ -823,6 +831,7 @@
   (let [transcript-el (dom/get-el "#textbox")]
     (load-query-params!)
     (dom/clear-listeners! state)
+    (dom/add-listener! state js/window "resize" resize-textbox!)
     (add-import-listeners! transcript-el)
     (add-export-listeners! transcript-el)
     (add-input-listeners! transcript-el)
@@ -830,7 +839,8 @@
     (add-key-listeners!)
     (add-message-listeners!)
     (restore-transcript! transcript-el)
-    (init-transcript! transcript-el)))
+    (init-transcript! transcript-el)
+    (resize-textbox!)))
 
 (when-not (:initialised @state)
   (init-ui!)

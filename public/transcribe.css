@@ -1,3 +1,7 @@
+body {
+  overflow: hidden;
+}
+
 #container > h1 {
   padding: 5px;
 }
@@ -15,6 +19,7 @@
   border: solid thin;
   font-weight: bold;
   justify-content: space-between;
+  margin: 5px;
   padding: 5px;
 }
 
@@ -78,9 +83,11 @@ span.key {
 }
 
 #textbox {
-  margin: 5px;
+  /* height will be set dynamically */
   min-height: 2em;
+  margin: 5px;
   outline: solid thin;
+  overflow-y: auto;
 }
 
 .transcript-p {
