@@ -248,18 +248,20 @@
 
 (defn move-cursor!
   "Moves the cursor to the specified offset within the editable element
-   identified by `selector`. `selector` may also be an element."
+   identified by `selector`. `selector` may also be an element. If `offset`
+   is `:end`, the cursor will be placed at the end, and if it is negative, the
+   cursor will be placed `offset` characters from the end."
   [selector offset]
-  (let [el (get-el selector)
+  (let [el (-> (get-el selector) (get-child 0))  ; the child is a Text object
+        len (count (get-text el))
         sel (js/window.getSelection)
         rng (js/document.createRange)]
-    (if (= :end offset)
-      (do
-        (.selectNodeContents rng el)
-        (.collapse rng false))
-      (do
-        (.setStart rng el offset)
-        (.setEnd rng el offset)))
+    (let [offset (cond
+                   (= :end offset) len
+                   (neg? offset) (+ len offset)
+                   :else offset)]
+      (.setStart rng el offset)
+      (.setEnd rng el offset))
     (.removeAllRanges sel)
     (.addRange sel rng)))
 
