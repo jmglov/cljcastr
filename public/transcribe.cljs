@@ -258,12 +258,56 @@
 (declare combine-paragraphs!)
 (declare undo-combine-paragraphs!)
 
+(defn handle-speaker-keydown! [ev]
+  (let [k (.-key ev)
+        el (.-target ev)
+        p (get-paragraph-parent el)
+        {:keys [offset paragraph-num]} (get-location)
+        move-to-text! (fn []
+                        (dom/move-cursor! (get-paragraph-el p :text) 0)
+                        (.preventDefault ev))
+        move-up! (fn []
+                   (dom/move-cursor! (get-transcript-el (dec paragraph-num) :text)
+                                     :end)
+                   (.preventDefault ev))]
+    (log :debug "Key pressed in speaker el; offset:" offset ev)
+
+    (case k
+      "Enter"
+      (move-to-text!)
+
+      "ArrowRight"
+      (when (= offset (count (dom/get-text el)))
+        (move-to-text!))
+
+      "ArrowUp"
+      (when (and (= 0 offset)
+                 (> paragraph-num 0))
+        (move-up!))
+
+      "ArrowLeft"
+      (when (and (= 0 offset)
+                 (> paragraph-num 0))
+        (move-up!))
+
+      :ignored)))
+
 (defn handle-text-keydown! [ev]
   (let [k (.-key ev)
         el (.-target ev)
         p (get-paragraph-parent el)
-        {:keys [offset paragraph-num]} (get-location)]
-    (log :debug "Key pressed; offset:" offset ev)
+        {:keys [offset paragraph-num]} (get-location)
+        move-up! (fn []
+                   (dom/move-cursor! (get-transcript-el (dec paragraph-num) :text)
+                                     :end)
+                   (.preventDefault ev))
+        move-down! (fn []
+                     (dom/move-cursor! (get-transcript-el (inc paragraph-num) :text) 0)
+                     (.preventDefault ev))
+        move-to-speaker! (fn []
+                           (dom/move-cursor! (get-paragraph-el p :speaker) :end)
+                           (.preventDefault ev))]
+    (log :debug "Key pressed in text el; offset:" offset ev)
 
     (case k
       ;; Don't allow enter to be pressed at the beginning of text elements to
@@ -275,26 +319,23 @@
       "ArrowUp"
       (when (and (= 0 offset)
                  (> paragraph-num 0))
-        (dom/move-cursor! (get-transcript-el (dec paragraph-num) :text) :end)
-        (.preventDefault ev))
+        (move-up!))
 
       "ArrowLeft"
-      (when (and (= 0 offset)
-                 (> paragraph-num 0))
-        (dom/move-cursor! (get-transcript-el (dec paragraph-num) :text) :end)
-        (.preventDefault ev))
+      (when (= 0 offset)
+        (cond
+          (get-speaker p) (move-to-speaker!)
+          (> paragraph-num 0) (move-up!)))
 
       "ArrowDown"
       (when (and (= offset (count (dom/get-text el)))
                  (< paragraph-num (dec (load-num-paragraphs))))
-        (dom/move-cursor! (get-transcript-el (inc paragraph-num) :text) 0)
-        (.preventDefault ev))
+        (move-down!))
 
       "ArrowRight"
       (when (and (= offset (count (dom/get-text el)))
                  (< paragraph-num (dec (load-num-paragraphs))))
-        (dom/move-cursor! (get-transcript-el (inc paragraph-num) :text) 0)
-        (.preventDefault ev))
+        (move-down!))
 
       ;; If backspace is pressed at the beginning of a text element in a
       ;; paragraph without a speaker, combine with the previous paragraph
@@ -355,9 +396,7 @@
     ;; Don't allow enter to be pressed in speaker elements to prevent new
     ;; paragraphs being inserted
     (when (= :speaker k)
-      (.addEventListener el "keydown"
-                         #(when (= "Enter" (.-key %))
-                            (.preventDefault %))))
+      (.addEventListener el "keydown" handle-speaker-keydown!))
 
     (when (= :text k)
       (.addEventListener el "keydown" handle-text-keydown!))
