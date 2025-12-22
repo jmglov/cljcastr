@@ -481,23 +481,29 @@
               "Unknown audio error")]
     (error! msg)))
 
+(defn play! []
+  (let [audio (dom/get-el "audio")
+        pos (-> (get-audio-ts) (time/sec->ts false))]
+    (log :debug "Playing audio from" pos)
+    (.play audio)
+    (dom/set-styles! "#play-button" "display: none;")
+    (dom/set-styles! "#pause-button" "display: block;")
+    (swap! state assoc :playing true)))
+
+(defn pause! []
+  (let [audio (dom/get-el "audio")
+        pos (-> (get-audio-ts) (time/sec->ts false))]
+    (log :debug "Pausing audio at" pos)
+    (.pause audio)
+    (dom/set-styles! "#play-button" "display: block;")
+    (dom/set-styles! "#pause-button" "display: none;")
+    (swap! state assoc :playing false)))
+
 (defn play-pause! []
   (when (audio-loaded?)
-    (let [audio (dom/get-el "audio")
-          pos (-> (get-audio-ts) (time/sec->ts false))]
-      (if (:playing @state)
-        (do
-          (log :debug "Pausing audio at" pos)
-          (.pause audio)
-          (dom/set-styles! "#play-button" "display: block;")
-          (dom/set-styles! "#pause-button" "display: none;")
-          (swap! state assoc :playing false))
-        (do
-          (log :debug "Playing audio from" pos)
-          (.play audio)
-          (dom/set-styles! "#play-button" "display: none;")
-          (dom/set-styles! "#pause-button" "display: block;")
-          (swap! state assoc :playing true))))))
+    (if (:playing @state)
+      (pause!)
+      (play!))))
 
 (defn seek! [delta]
   (when (audio-loaded?)
@@ -766,7 +772,13 @@
   (dom/add-listener! state audio-el "ratechange"
                      display-audio-playback-rate!)
   (dom/add-listener! state audio-el "timeupdate"
-                     display-audio-ts!))
+                     display-audio-ts!)
+  (dom/add-listener! state "#play-button" "click" play-pause!)
+  (dom/add-listener! state "#pause-button" "click" play-pause!)
+  (dom/add-listener! state "#rewind-button" "click" seek-backward!)
+  (dom/add-listener! state "#fast-forward-button" "click" seek-forward!)
+  (dom/add-listener! state "#slow-down-button" "click" slow-down!)
+  (dom/add-listener! state "#speed-up-button" "click" speed-up!))
 
 (defn add-import-listeners! [transcript-el]
   (dom/add-listener! state "#audio-file" "change"
