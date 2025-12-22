@@ -40,10 +40,18 @@
     </div>
 
     <div id="file-controls" class="controls">
-      <label for="audio-file">Open audio</label>
-      <input id="audio-file" type="file" accept="audio/*" />
-      <label for="import">Import transcript</label>
-      <input id="import" type="file" accept=".edn" />
+      <div id="audio-file-controls" class="file-controls">
+        <label for="audio-file">
+          <button id="audio-file-button">Open audio file</button>
+        </label>
+        <input id="audio-file" type="file" accept="audio/*" />
+      </div>
+      <div id="transcript-file-controls" class="file-controls">
+        <label for="transcript-file">
+          <button id="transcript-file-button">Import transcript file</button>
+        </label>
+        <input id="transcript-file" type="file" accept=".edn" />
+      </div>
     </div>
 
     <div id="url-controls" class="controls">

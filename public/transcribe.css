@@ -44,6 +44,27 @@
   height: 1.5em;
 }
 
+#file-controls {
+  display: flex;
+  column-gap: 5px;
+}
+
+.file-controls {
+  position: relative;
+}
+
+input[type="file"] {
+  opacity: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+}
+
+button {
+  width: 11em;
+}
+
 .keybindings {
   display: flex;
   column-gap: 10px;

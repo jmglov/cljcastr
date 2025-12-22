@@ -769,10 +769,14 @@
                      display-audio-ts!))
 
 (defn add-import-listeners! [transcript-el]
-  (dom/add-listener! state "#import" "change"
-                     (partial read-transcript-file! transcript-el))
   (dom/add-listener! state "#audio-file" "change"
                      (partial load-audio! (dom/get-el "audio")))
+  (dom/add-listener! state "#audio-file-button" "click"
+                     #(-> (dom/get-el "#audio-file") .click))
+  (dom/add-listener! state "#transcript-file" "change"
+                     (partial read-transcript-file! transcript-el))
+  (dom/add-listener! state "#transcript-file-button" "click"
+                     #(-> (dom/get-el "#transcript-file") .click))
   (dom/add-listener! state "#audio-url-button" "click"
                      handle-audio-url-button!)
   (dom/add-listener! state "#audio-url" "keydown"
@@ -807,7 +811,7 @@
   (let [transcript-el (dom/get-el "#textbox")]
     (load-query-params!)
     (dom/clear-listeners! state)
-    (add-import-listeners!)
+    (add-import-listeners! transcript-el)
     (add-export-listeners! transcript-el)
     (add-input-listeners! transcript-el)
     (add-audio-listeners! "audio")
