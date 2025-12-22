@@ -272,6 +272,30 @@
       (when (= 0 offset)
         (.preventDefault ev))
 
+      "ArrowUp"
+      (when (and (= 0 offset)
+                 (> paragraph-num 0))
+        (dom/move-cursor! (get-transcript-el (dec paragraph-num) :text) :end)
+        (.preventDefault ev))
+
+      "ArrowLeft"
+      (when (and (= 0 offset)
+                 (> paragraph-num 0))
+        (dom/move-cursor! (get-transcript-el (dec paragraph-num) :text) :end)
+        (.preventDefault ev))
+
+      "ArrowDown"
+      (when (and (= offset (count (dom/get-text el)))
+                 (< paragraph-num (dec (load-num-paragraphs))))
+        (dom/move-cursor! (get-transcript-el (inc paragraph-num) :text) 0)
+        (.preventDefault ev))
+
+      "ArrowRight"
+      (when (and (= offset (count (dom/get-text el)))
+                 (< paragraph-num (dec (load-num-paragraphs))))
+        (dom/move-cursor! (get-transcript-el (inc paragraph-num) :text) 0)
+        (.preventDefault ev))
+
       ;; If backspace is pressed at the beginning of a text element in a
       ;; paragraph without a speaker, combine with the previous paragraph
       "Backspace"
