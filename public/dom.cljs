@@ -267,13 +267,15 @@
   "Adds an event listener to the element specified by `selector` for events of
    type `event-type`, registering in the `state` atom. `selector` may also be an
    element, in which case the listener is registered in `state` by the ID of the
-   element, unless it is `js/document`, which is handled as a special case. If
-   the element has no ID and is not `js/document`, the listener is not registered
-   and therefore cannot be removed by `clear-listeners!`."
+   element, unless it is `js/document` or `js/winodw`, which are handled as
+   special cases. If the element has no ID and is not `js/document` or
+   `js/window`, the listener is not registered and therefore cannot be removed by
+   `clear-listeners!`."
   [state selector event-type f]
   (.addEventListener (get-el selector) event-type f)
   (let [selector (or (get-selector selector)
-                     (when (= js/document selector) "js/document"))]
+                     (when (= js/document selector) "js/document")
+                     (when (= js/window selector) "js/window"))]
     (when selector
       (swap! state update-in [:listeners selector event-type] #(cons f %))
       (get-in @state [:listeners selector]))))
@@ -294,7 +296,10 @@
          (clear-listeners! state selector event-type)))))
   ([state selector event-type]
    (when-let [selector (get-selector selector)]
-     (let [el (if (= "js/document" selector) js/document (get-el selector))]
+     (let [el (cond
+                (= "js/document" selector) js/document
+                (= "js/window" selector) js/window
+                :else (get-el selector))]
        (doseq [f (get-in @state [:listeners selector event-type])]
          (.removeEventListener el event-type f)))
      (swap! state update-in [:listeners selector] dissoc event-type)
