@@ -6,7 +6,7 @@
 ;;
 ;; C-c l C (cider-connect-cljs), host: localhost; port: 1339; REPL type: nbb
 
-(ns cljcastr.transcript
+(ns cljcastr.transcribe
   (:require [cljcastr.dom :as dom]
             [cljcastr.time :as time]
             [clojure.edn :as edn]
