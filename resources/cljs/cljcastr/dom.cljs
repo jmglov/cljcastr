@@ -244,6 +244,7 @@
      (when (:id opts) (set! (.-id el) (:id opts)))
      (when (:class opts) (add-class! el (:class opts)))
      (when (:classes opts) (add-classes! el (:classes opts)))
+     (when (:text opts) (set-text! el (:text opts)))
      el)))
 
 (defn move-cursor!
