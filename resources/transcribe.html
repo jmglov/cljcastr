@@ -1,42 +1,44 @@
-<!doctype html>
-<html class="no-js" lang="">
+<html xmlns="http://www.w3.org/1999/xhtml">
 
 <head>
-    <meta charset="utf-8">
-    <meta http-equiv="x-ua-compatible" content="ie=edge">
-    <title>cljcastr</title>
-    <meta name="description" content="">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="transcribe.css">
+  <title>{{podcast.title}} Transcript Editor</title>
 
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="manifest" href="/site.webmanifest">
-    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
-    <meta name="msapplication-TileColor" content="#da532c">
-    <meta name="theme-color" content="#ffffff">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/{{css-dir}}/transcribe.css">
 
-    <script src="https://cdn.jsdelivr.net/npm/scittle@0.7.28/dist/scittle.js" type="application/javascript"></script>
-    <script src="https://cdn.jsdelivr.net/npm/scittle@0.7.28/dist/scittle.promesa.js" type="application/javascript"></script>
-    <script>var SCITTLE_NREPL_WEBSOCKET_PORT = 1340;</script>
-    <script>var CLJCASTR_LOG_LEVEL = "info";</script>
-    <script src="https://cdn.jsdelivr.net/npm/scittle@0.7.28/dist/scittle.nrepl.js" type="application/javascript"></script>
-    <script type="application/x-scittle" src="dom.cljs"></script>
-    <script type="application/x-scittle" src="time.cljc"></script>
-    <script type="application/x-scittle" src="transcribe.cljs"></script>
+  <!-- Favicon from https://realfavicongenerator.net/ -->
+  <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-title" content="cljcastr" />
+  <link rel="manifest" href="/site.webmanifest" />
+
+  <script src="https://cdn.jsdelivr.net/npm/scittle@0.7.28/dist/scittle.js" type="application/javascript"></script>
+  <script src="https://cdn.jsdelivr.net/npm/scittle@0.7.28/dist/scittle.promesa.js" type="application/javascript"></script>
+{% if dev %}
+  <script>var SCITTLE_NREPL_WEBSOCKET_PORT = {{websocket-port}};</script>
+  <script>var CLJCASTR_LOG_LEVEL = "debug";</script>
+  <script src="https://cdn.jsdelivr.net/npm/scittle@0.7.28/dist/scittle.nrepl.js" type="application/javascript"></script>
+{% else %}
+  <script>var CLJCASTR_LOG_LEVEL = "info";</script>
+{% endif %}
+{% for file in cljcastr-transcribe.files %}
+  <script type="application/x-scittle" src="/{{cljs-dir}}/{{file}}"></script>
+{% endfor %}
 </head>
 
 <body>
 
   <div id="container">
 
-    <h1>cljcastr transcribe</h1>
+    <h1>{{podcast.title}} Transcript Editor</h1>
 
     <div id="message" style="display: none;">
     <span id="message-text"></span>
     <input id="close-message-button" type="image" alt="Close message"
-      src="close-square-svgrepo-com.svg" />
+      src="/{{image-dir}}/close-button.svg" />
     </div>
 
     <div id="file-controls" class="controls">
@@ -80,30 +82,31 @@
       <div class="audio-control">
         <span id="audio-ts">00:00</span>/<span id="audio-dur">00:00</span>
       </div>
-      <div class="audio-control">
+    <div class="audio-control">
         <input id="play-button" type="image" alt="Play" title="Play"
-          src="play-button.svg" />
+          src="/{{image-dir}}/play-button.svg" />
         <input id="pause-button" type="image" alt="Pause" title="Pause"
-          src="pause-button.svg" style="display: none;" />
+          src="/{{image-dir}}/pause-button.svg"
+            style="display: none;" />
         <span>Esc</span>
       </div>
       <div class="audio-control">
         <input id="rewind-button" type="image" alt="Rewind" title="Rewind"
-          src="rewind-button.svg" />
+          src="/{{image-dir}}/rewind-button.svg" />
         <span>F1</span>
       </div>
       <div class="audio-control">
         <input id="fast-forward-button" type="image" alt="Fast Forward" title="Fast Forward"
-          src="fast-forward-button.svg" />
+          src="/{{image-dir}}/fast-forward-button.svg" />
         <span>F2</span>
       </div>
       <div class="audio-control">
         <input id="slow-down-button" type="image" alt="Slow Down" title="Slow Down"
-          src="speed-meter.svg" />
+          src="/{{image-dir}}/speed-meter.svg" />
         <span>F3</span>
         <span id="audio-rate">1x</span>
         <input id="speed-up-button" type="image" alt="Speed Up" title="Speed Up"
-          src="speed-meter.svg" style="transform: rotateY(180deg)" />
+          src="/{{image-dir}}/speed-meter.svg" style="transform: rotateY(180deg)" />
         <span>F4</span>
       </div>
     </div>

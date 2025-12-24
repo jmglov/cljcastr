@@ -28,11 +28,13 @@
     (Integer/parseInt x)
     (int x)))
 
-(defn strip-path [n path]
+(defn strip-path
+  "Strip `n` leading components from `path`"
+  [n path]
   (let [path-components (fs/components path)]
     (->> (or (not-empty (drop n path-components))
              (last path-components))
-         (str/join fs/file-separator))))
+         (apply fs/file))))
 
 (defn modified-since?
   "Returns truthy if file1 has been modified more recently than file2."
@@ -40,9 +42,10 @@
   (not-empty (fs/modified-since file2 file1)))
 
 (defn relative-filename [base-path filename]
-  (let [base-path (format "%s/" (str base-path))
-        filename (str filename)]
-    (str/replace-first filename base-path "")))
+  (->> (fs/components filename)
+       (drop (count (fs/components base-path)))
+       (apply fs/file)
+       str))
 
 (defn shell [& args]
   (let [p (apply p/shell {:out :string

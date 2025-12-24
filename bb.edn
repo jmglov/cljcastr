@@ -1,12 +1,16 @@
-{:paths ["src" "resources"]
+{:paths ["src" "resources" "resources/cljs"]
  :deps {io.github.jmglov/cljcastr {:local/root "."}}
  :tasks
- {:requires ([cljcastr.tasks :as tasks])
+ {:requires ([babashka.fs :as fs]
+             [cljcastr.tasks :as tasks])
   :init (def opts
-          {:http-root "public"
-           :http-port 8081
-           :nrepl-port 1339
-           :websocket-port 1340})
+          (merge tasks/default-opts
+                 {:http-root ".public"
+                  :http-port 8081
+                  :nrepl-port 1339
+                  :websocket-port 1340
+                  :favicon-dir ""  ; relative to http-root
+                  :transcribe-template "resources/transcribe.html"}))
 
   http-server (tasks/http-server opts)
 
@@ -16,6 +20,13 @@
 
   dev {:task (do (run '-dev {:parallel true})
                  (deref (promise)))}
+
+  render {:doc "Build site"
+          :task (tasks/render-transcribe
+                 (assoc opts :out-dir (:http-root opts)))}
+
+  clean {:doc "Remove dev HTTP root"
+         :task (fs/delete-tree (:http-root opts))}
 
   test {:doc "Run tests"
         :task (apply clojure "-M:test" *command-line-args*)}

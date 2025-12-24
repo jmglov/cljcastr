@@ -1,0 +1,2 @@
+;; Fake podcast for development
+{:podcast {:title "cljcastr"}}

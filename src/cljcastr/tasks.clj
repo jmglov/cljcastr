@@ -20,6 +20,9 @@
 
 (def default-opts
   {:assets-dir "assets"
+   :cljs-dir "cljs"
+   :css-dir "css"
+   :image-dir "img"
    :templates-dir "templates"
    :css-file (fs/file "css" "main.css")
    :feed-file "feed.rss"
@@ -35,6 +38,23 @@
    :remove-active-listening true
    :remove-repeated-words true
    :join-speakers true})
+
+(def cljs-src-dir (io/resource "cljs"))
+(def css-src-dir (io/resource "css"))
+(def image-src-dir (io/resource "img"))
+(def favicon-src-dir (fs/file (fs/cwd) "favicon"))
+
+(def ->cljs-src-filenames (partial map (partial fs/file "cljcastr")))
+
+(def cljs-libs-spec
+  {:src-dir cljs-src-dir
+   :src-filenames (->cljs-src-filenames ["dom.cljs" "time.cljc"])})
+
+(def cljs-app-spec
+  {:player {:src-dir cljs-src-dir
+            :src-filenames (->cljs-src-filenames ["player.cljs"])}
+   :transcribe {:src-dir cljs-src-dir
+                :src-filenames (->cljs-src-filenames ["transcribe.cljs"])}})
 
 (defn load-edn [filename]
   (-> (slurp filename)
@@ -58,8 +78,91 @@
      (util/debug merged-opts (format "Parsed opts: %s" (pr-str cli-opts)))
      merged-opts)))
 
+(defn copy-files
+  "Given a `dirs-spec` of `{FILE_TYPE_1
+                            {:src-dir SRC_DIR_1, :tgt-dir TGT_DIR_1,
+                             :src-filenames [FILENAME_1, FILENAME2, ...]}
+                            FILE_TYPE_2
+                            {...}
+                            ...}`
+   copies `SRC_DIR_1/FILENAME_1` to `TGT_DIR_1/FILENAME_1`,
+   `SRC_DIR_1/FILENAME_2` to `TGT_DIR_1/FILENAME_2`, `SRC_DIR2/FILENAME_3` to
+   `TGT_DIR_2/FILENAME_3`, ... and returns a map of
+   `{FILE_TYPE_1 [{:filename `SRC_DIR_1/FILENAME_1`
+                   :src-filename `FILENAME_1`
+                   :tgt-filename `TGT_DIR_1/FILENAME_1`}
+                  ...]
+     FILE_TYPE_2 [...]
+     ...}`"
+  ([opts dirs-spec]
+   (copy-files (str (fs/cwd)) opts dirs-spec))
+  ([dir opts dirs-spec]
+   (copy-files dir *default-podcast-config-filename* opts dirs-spec))
+  ([dir filename opts dirs-spec]
+   (let [{:keys [out-dir] :as opts}
+         (load-config dir filename (merge {:base-dir (fs/cwd)}
+                                          default-opts
+                                          opts))
+         files
+         (->> dirs-spec
+              (map (fn [[file-type {:keys [src-filenames src-dir tgt-dir] :as spec}]]
+                     [file-type
+                      (->> src-filenames
+                           (map (fn [src-filename]
+                                  (let [filename (fs/file src-dir src-filename)
+                                        tgt-filename (fs/file out-dir tgt-dir src-filename)]
+                                    (->map filename src-filename tgt-filename)))))]))
+              (into {}))]
+     (doseq [[file-type file-list] files
+             {:keys [filename src-filename tgt-filename]} file-list]
+       (when (util/modified-since? filename tgt-filename)
+         (println (format "%s file %s modified; updating"
+                          (name file-type) src-filename))
+         (fs/create-dirs (fs/parent tgt-filename))
+         (fs/copy filename tgt-filename {:replace-existing true})))
+     files)))
+
+(defn make-dir-spec
+  "Returns a dir-spec (see `copy-files`) for all of the files in `src-dir`."
+  [src-dir tgt-dir]
+  (let [src-filenames (map (partial util/relative-filename src-dir)
+                           (fs/list-dir src-dir))]
+    (->map src-filenames src-dir tgt-dir)))
+
 (defn render-file [filename opts]
   (selmer/render (slurp filename) opts))
+
+(defn render-transcribe
+  ([opts]
+   (render-transcribe (str (fs/cwd)) opts))
+  ([dir opts]
+   (render-transcribe dir *default-podcast-config-filename* opts))
+  ([dir filename opts]
+   (let [{:keys [cljs-dir css-dir image-dir favicon-dir out-dir] :as opts}
+         (load-config dir filename (merge {:base-dir (fs/cwd)}
+                                          default-opts
+                                          opts))
+         files (copy-files dir filename opts
+                           {:transcribe (assoc (cljs-app-spec :transcribe)
+                                               :tgt-dir cljs-dir)
+                            :cljs-lib (assoc cljs-libs-spec
+                                             :tgt-dir cljs-dir)
+                            :css (make-dir-spec css-src-dir css-dir)
+                            :image (make-dir-spec image-src-dir image-dir)
+                            :favicon (make-dir-spec favicon-src-dir favicon-dir)})
+         opts (assoc-in opts [:cljcastr-transcribe :files]
+                        (concat (map :src-filename (:cljs-lib files))
+                                (map :src-filename (:transcribe files))))
+         filename (fs/file out-dir "transcribe.html")
+         content (-> (:transcribe-template opts)
+                     (template/expand-template opts)
+                     slurp
+                     (selmer/render opts))]
+     (when-not (and (fs/exists? filename)
+                    (= content (slurp filename)))
+       (println "Writing transcript editor:"
+                (util/relative-filename out-dir filename))
+       (spit filename content)))))
 
 (defn render
   ([opts]
@@ -67,25 +170,28 @@
   ([dir opts]
    (render dir *default-podcast-config-filename* opts))
   ([dir filename opts]
-   (let [{:keys [base-dir assets-dir cljs-dir templates-dir
+   (let [{:keys [base-dir assets-dir cljs-dir css-dir image-dir templates-dir
                  css-file feed-file index-file
                  episodes episodes-dir out-dir] :as opts}
          (load-config dir filename (merge {:base-dir (fs/cwd)}
                                           default-opts
                                           opts))
-         cljs-files (->> (fs/list-dir (io/resource "cljs/cljcastr"))
-                         (map (fn [filename]
-                                (let [src-filename (util/relative-filename
-                                                    (fs/file (io/resource "cljs"))
-                                                    filename)
-                                      tgt-filename (fs/file out-dir cljs-dir src-filename)]
-                                  (->map filename src-filename tgt-filename)))))
+         files (copy-files dir filename opts
+                           {:player (assoc (cljs-app-spec :player)
+                                           :tgt-dir (:cljs-dir opts))
+                            :cljs-lib (assoc cljs-libs-spec
+                                             :tgt-dir (:cljs-dir opts))
+                            :css (make-dir-spec css-src-dir
+                                                (:css-dir opts))
+                            :image (make-dir-spec image-src-dir
+                                                  (:image-dir opts))})
          opts (if (and (:dev opts) (:http-port opts))
                 (assoc opts :base-url
                        (format "http://localhost:%s" (:http-port opts)))
                 opts)
          opts (assoc-in opts [:cljcastr-player :files]
-                        (map :src-filename cljs-files))
+                        (concat (map :src-filename (:cljs-lib files))
+                                (map :src-filename (:player files))))
          out-dir (fs/file base-dir out-dir)
          css-out-file (fs/file out-dir css-file)
          css-contents (render-file (fs/file base-dir assets-dir css-file) opts)
@@ -141,12 +247,6 @@
          (println "Writing RSS feed:"
                   (util/relative-filename out-dir feed-file))
          (spit feed-file feed-contents)))
-
-     (doseq [{:keys [filename src-filename tgt-filename]} cljs-files]
-       (when (util/modified-since? filename tgt-filename)
-         (println (format "cljs file %s modified; updating" src-filename))
-         (fs/create-dirs (fs/parent tgt-filename))
-         (fs/copy filename tgt-filename {:replace-existing true})))
 
      (let [template (slurp episode-template)
            opts (rss/update-episodes (assoc opts :bonus-numbers? true))]
@@ -298,9 +398,9 @@
                                 :otr {:otr-html-only true}
                                 {}))
          a-paragraphs (->> (slurp a-file)
-                             parse-fn)
+                           parse-fn)
          b-paragraphs (->> (slurp b-file)
-                             parse-fn)]
+                           parse-fn)]
      (println (format "diff -u %s %s" a-file b-file))
      (fs/with-temp-dir [dir]
        (let [a (fs/file dir (fs/file-name a-file))
