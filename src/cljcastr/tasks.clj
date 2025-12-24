@@ -50,7 +50,7 @@
 
 (def cljs-libs-spec
   {:src-dir cljs-src-dir
-   :src-filenames (->cljs-src-filenames ["dom.cljs" "time.cljc"])})
+   :src-filenames (->cljs-src-filenames ["dom.cljs" "time.cljc" "transcript.cljc"])})
 
 (def cljs-app-spec
   {:player {:src-dir cljs-src-dir
