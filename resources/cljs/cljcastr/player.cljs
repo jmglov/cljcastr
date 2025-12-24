@@ -1,8 +1,10 @@
 (ns cljcastr.player
-  (:require [clojure.string :as str]
+  (:require [cljcastr.dom :as dom]
+            [cljcastr.transcript :as transcript]
+            [clojure.string :as str]
             [promesa.core :as p]))
 
-(defonce state (atom nil))
+(defonce state (atom {}))
 
 (def svg-ns "http://www.w3.org/2000/svg")
 
@@ -575,30 +577,70 @@
     (.addEventListener span "click" timestamp-click-handler))
   (seek-to-ts!))
 
+(defn transcript-id
+  ([i]
+   (str "transcript-p-" i))
+  ([i el-type]
+   (str (transcript-id i) "-" (name el-type))))
+
+(defn create-transcript-el [i el-type v]
+  (let [span (when v
+               (dom/create-el "span"
+                              {:id (transcript-id i el-type)
+                               :class (str "transcript-" (name el-type))
+                               :text v}))]
+    (case el-type
+      :p (dom/create-el "div" {:id (transcript-id i)
+                               :class "transcript-paragraph"})
+      :ts (when span
+            ;; TODO: set seek listener
+            span)
+      :speaker (when span
+                 (dom/set-text! span (str v ":"))
+                 span)
+      :text span)))
+
+(defn create-transcript-paragraph [i {:keys [ts speaker text]}]
+  (let [p-el (create-transcript-el i :p nil)
+        ts-el (create-transcript-el i :ts ts)
+        speaker-el (create-transcript-el i :speaker speaker)
+        text-el (create-transcript-el i :text text)
+        text-wrapper-el (dom/create-el "div" {:class "transcript-text-wrapper"})]
+    (when speaker-el
+      (dom/add-child! text-wrapper-el speaker-el))
+    (dom/add-child! text-wrapper-el text-el)
+    (when ts-el
+      (dom/add-child! p-el ts-el))
+    (dom/add-child! p-el text-wrapper-el)
+    p-el))
+
 (defn load-transcript [transcript-url]
   (log "Fetching transcript from:" transcript-url)
-  (let [transcript-type (file-extension transcript-url)
-        parse-fn (case transcript-type
-                   "json" #(-> % (js/JSON.parse) (.-text))
-                   ;; TODO: implement EDN transcripts
-                   "edn" identity
-                   "txt" identity)]
-    (p/->> (js/fetch (js/Request. transcript-url))
-           (.text)
-           parse-fn
-           (assoc {:transcript-type transcript-type} :transcript))))
+  (p/let [transcript-type (-> transcript-url file-extension keyword)
+          transcript
+          (p/->> (js/fetch (js/Request. transcript-url))
+                 (.text)
+                 (transcript/parse-transcript transcript-type)
+                 (assoc {:transcript-type transcript-type} :transcript))]
+    (swap! state assoc :transcript transcript)
+    transcript))
 
 (defn display-transcript! [{:keys [transcript-selector] :as opts}
                            {:keys [transcript-type transcript]}]
-  (let [transcript
+  (let [el (dom/get-el transcript-selector)
+        paragraphs
         (case transcript-type
-          "txt"
+          :txt
           (->> transcript
                str/split-lines
                (remove empty?)
-               (map (fn [line] (str "<p>" line "</p>")))
-               str/join))]
-    (set! (.-innerHTML (get-el transcript-selector)) transcript)))
+               (map #(dom/create-el "p" {:text %})))
+
+          :edn
+          (->> transcript
+               (map-indexed create-transcript-paragraph)))]
+    (dom/set-children! el paragraphs)
+    el))
 
 (defn activate-episode!
   [{:keys [single-episode audio-selector transcript-selector] :as opts}]
@@ -932,8 +974,10 @@
     (display-podcast! opts podcast)
     (init-buttons! opts)
     (activate-episode! opts)
-    (log "All good bruv")))
+    (swap! state assoc :loaded true)
+    (log "UI loaded successfully")))
 
 (set! (.-loadUI js/window) load-ui!)
 
-(load-ui! (parse-opts))
+(when-not (:loaded @state)
+  (load-ui! (parse-opts)))
