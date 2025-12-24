@@ -27,6 +27,8 @@
    :css-file (fs/file "css" "main.css")
    :feed-file "feed.rss"
    :index-file "index.html"
+   :transcribe-file "transcribe.html"
+   :transcribe-template (io/resource "transcribe.html")
    :http-port 1341
    :http-root "public"
    :nrepl-port 1339
@@ -132,38 +134,6 @@
 (defn render-file [filename opts]
   (selmer/render (slurp filename) opts))
 
-(defn render-transcribe
-  ([opts]
-   (render-transcribe (str (fs/cwd)) opts))
-  ([dir opts]
-   (render-transcribe dir *default-podcast-config-filename* opts))
-  ([dir filename opts]
-   (let [{:keys [cljs-dir css-dir image-dir favicon-dir out-dir] :as opts}
-         (load-config dir filename (merge {:base-dir (fs/cwd)}
-                                          default-opts
-                                          opts))
-         files (copy-files dir filename opts
-                           {:transcribe (assoc (cljs-app-spec :transcribe)
-                                               :tgt-dir cljs-dir)
-                            :cljs-lib (assoc cljs-libs-spec
-                                             :tgt-dir cljs-dir)
-                            :css (make-dir-spec css-src-dir css-dir)
-                            :image (make-dir-spec image-src-dir image-dir)
-                            :favicon (make-dir-spec favicon-src-dir favicon-dir)})
-         opts (assoc-in opts [:cljcastr-transcribe :files]
-                        (concat (map :src-filename (:cljs-lib files))
-                                (map :src-filename (:transcribe files))))
-         filename (fs/file out-dir "transcribe.html")
-         content (-> (:transcribe-template opts)
-                     (template/expand-template opts)
-                     slurp
-                     (selmer/render opts))]
-     (when-not (and (fs/exists? filename)
-                    (= content (slurp filename)))
-       (println "Writing transcript editor:"
-                (util/relative-filename out-dir filename))
-       (spit filename content)))))
-
 (defn render
   ([opts]
    (render (str (fs/cwd)) opts))
@@ -171,27 +141,35 @@
    (render dir *default-podcast-config-filename* opts))
   ([dir filename opts]
    (let [{:keys [base-dir assets-dir cljs-dir css-dir image-dir templates-dir
-                 css-file feed-file index-file
+                 dirs-spec
+                 css-file feed-file index-file transcribe-file
                  episodes episodes-dir out-dir] :as opts}
          (load-config dir filename (merge {:base-dir (fs/cwd)}
                                           default-opts
                                           opts))
          files (copy-files dir filename opts
-                           {:player (assoc (cljs-app-spec :player)
-                                           :tgt-dir (:cljs-dir opts))
-                            :cljs-lib (assoc cljs-libs-spec
-                                             :tgt-dir (:cljs-dir opts))
-                            :css (make-dir-spec css-src-dir
-                                                (:css-dir opts))
-                            :image (make-dir-spec image-src-dir
-                                                  (:image-dir opts))})
+                           (merge
+                            {:player (assoc (cljs-app-spec :player)
+                                            :tgt-dir (:cljs-dir opts))
+                             :transcribe (assoc (cljs-app-spec :transcribe)
+                                                :tgt-dir cljs-dir)
+                             :cljs-lib (assoc cljs-libs-spec
+                                              :tgt-dir (:cljs-dir opts))
+                             :css (make-dir-spec css-src-dir
+                                                 (:css-dir opts))
+                             :image (make-dir-spec image-src-dir
+                                                   (:image-dir opts))}
+                            dirs-spec))
          opts (if (and (:dev opts) (:http-port opts))
                 (assoc opts :base-url
                        (format "http://localhost:%s" (:http-port opts)))
                 opts)
-         opts (assoc-in opts [:cljcastr-player :files]
-                        (concat (map :src-filename (:cljs-lib files))
-                                (map :src-filename (:player files))))
+         episode-opts (assoc-in opts [:cljcastr-player :files]
+                                (concat (map :src-filename (:cljs-lib files))
+                                        (map :src-filename (:player files))))
+         transcribe-opts (assoc-in opts [:cljcastr-transcribe :files]
+                                   (concat (map :src-filename (:cljs-lib files))
+                                           (map :src-filename (:transcribe files))))
          out-dir (fs/file base-dir out-dir)
          css-out-file (fs/file out-dir css-file)
          css-contents (render-file (fs/file base-dir assets-dir css-file) opts)
@@ -200,9 +178,14 @@
          index-contents (->> (template/expand-context 5 opts)
                              (render-file (fs/file base-dir templates-dir index-file)))
          episode-template (-> (:episode-template opts)
-                              (template/expand-template opts))
-         page-template (-> (:page-template opts)
-                           (template/expand-template opts))
+                              (template/expand-template episode-opts))
+         page-template (when-let [template (:page-template opts)]
+                         (template/expand-template template opts))
+         transcribe-out-file (fs/file out-dir transcribe-file)
+         transcribe-contents (-> (:transcribe-template opts)
+                                 (template/expand-template transcribe-opts)
+                                 slurp
+                                 (selmer/render transcribe-opts))
          updated-asset-files (util/copy-modified! assets-dir out-dir)]
 
      (doseq [file updated-asset-files]
@@ -249,7 +232,7 @@
          (spit feed-file feed-contents)))
 
      (let [template (slurp episode-template)
-           opts (rss/update-episodes (assoc opts :bonus-numbers? true))]
+           opts (rss/update-episodes (assoc episode-opts :bonus-numbers? true))]
        (doseq [{:keys [path] :as episode} (:episodes opts)
                :let [filename (fs/file out-dir path "index.html")
                      opts (assoc opts :episode episode)
@@ -263,17 +246,25 @@
                     (util/relative-filename out-dir filename))
            (spit filename content))))
 
-     (let [template (slurp page-template)]
-       (doseq [{:keys [filename] :as page} (:pages opts)
-               :let [ctx (-> (template/expand-context 5 page opts)
-                             (update :stylesheets
-                                     #(concat (:stylesheets opts) %)))
-                     tgt-filename (fs/file out-dir filename)
-                     content (selmer/render template (merge opts ctx))]]
-         (when-not (and (fs/exists? tgt-filename)
-                        (= content (slurp tgt-filename)))
-           (println "Writing page:" filename)
-           (spit tgt-filename content)))))))
+     (when (and (:pages opts) page-template)
+       (let [template (slurp page-template)]
+         (doseq [{:keys [filename] :as page} (:pages opts)
+                 :let [ctx (-> (template/expand-context 5 page opts)
+                               (update :stylesheets
+                                       #(concat (:stylesheets opts) %)))
+                       tgt-filename (fs/file out-dir filename)
+                       content (selmer/render template (merge opts ctx))]]
+           (when-not (and (fs/exists? tgt-filename)
+                          (= content (slurp tgt-filename)))
+             (println "Writing page:" filename)
+             (spit tgt-filename content)))))
+
+     (when-not (and (fs/exists? transcribe-out-file)
+                    (= transcribe-contents (slurp transcribe-out-file)))
+       (println (format "Writing transcript editor: %s"
+                        (util/relative-filename out-dir transcribe-out-file)))
+       (fs/create-dirs (fs/parent transcribe-out-file))
+       (spit transcribe-out-file transcribe-contents)))))
 
 (defn publish-aws [opts]
   (let [{:keys [website-bucket out-dir distribution-id]

@@ -1,2 +1,4 @@
 ;; Fake podcast for development
-{:podcast {:title "cljcastr"}}
+{:episodes-dir "episodes"
+ :episode-template "{{templates-dir}}/episode.html"
+ :podcast {:title "cljcastr"}}

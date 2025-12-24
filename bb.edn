@@ -9,8 +9,7 @@
                   :http-port 8081
                   :nrepl-port 1339
                   :websocket-port 1340
-                  :favicon-dir ""  ; relative to http-root
-                  :transcribe-template "resources/transcribe.html"}))
+                  :favicon-dir ""}))
 
   http-server (tasks/http-server opts)
 
@@ -22,7 +21,7 @@
                  (deref (promise)))}
 
   render {:doc "Build site"
-          :task (tasks/render-transcribe
+          :task (tasks/render
                  (assoc opts :out-dir (:http-root opts)))}
 
   clean {:doc "Remove dev HTTP root"
