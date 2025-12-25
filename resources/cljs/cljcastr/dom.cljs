@@ -39,6 +39,14 @@
       (when (not= "#" selector)
         selector))))
 
+(defn get-attribute
+  ([selector attr]
+   (when-let [el (get-el selector)]
+     (.getAttribute el (name attr))))
+  ([el selector attr]
+   (when-let [el (get-el el selector)]
+     (get-attribute el attr))))
+
 (defn get-html
   "Returns inner HTML of the element identified by `selector`. `selector` may
    also be an element."
