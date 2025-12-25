@@ -1,4 +1,8 @@
-(ns cljcastr.dom)
+(ns cljcastr.dom
+  (:require [clojure.string :as str]))
+
+(defn error! [& msgs]
+  (throw (js/Error. (str/join " " msgs))))
 
 (defn get-el
   "Returns the first element in the document matching the XPath selector
