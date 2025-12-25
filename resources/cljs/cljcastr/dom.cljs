@@ -202,6 +202,18 @@
   [selector attr v]
   (.setAttribute (get-el selector) attr v))
 
+(defn set-attributes!
+  "Given a list of attribute name / value pairs `attrs`, sets each attribute of
+   the element identified by `selector` to the corresponding value. `selector`
+   may also be an element."
+  [selector attrs]
+  (when-let [el (get-el selector)]
+    (if (or (sequential? attrs) (map? attrs))
+      (doseq [[k v] attrs]
+        (set-attribute! el k v))
+      (error! "attrs must be a list of attribute / value pairs; was:"
+              (type attrs)))))
+
 (defn set-html!
   "Sets inner HTML of the element identified by `selector` to `html`.
    `selector` may also be an element."
