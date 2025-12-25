@@ -3,8 +3,8 @@
         babashka/fs {:mvn/version "0.5.26"}
         babashka/process {:mvn/version "0.6.23"}
         cheshire/cheshire {:mvn/version "6.0.0"}
-        io.github.babashka/sci.nrepl {:git/sha "83861f7ceced223870ef52b6f6b4d181ede05a86"}
         io.github.babashka/http-server {:git/sha "3e54843ac3c9cd4ecacf8cdb2f7f79482252b1ed"}
+        io.github.babashka/sci.nrepl {:git/sha "1042578d5784db07b4d1b6d974f1db7cabf89e3f"}
         selmer/selmer {:mvn/version "1.12.62"}}
  :aliases
  {
