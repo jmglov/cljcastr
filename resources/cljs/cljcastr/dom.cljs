@@ -278,6 +278,8 @@
    (create-el el-type {}))
   ([el-type opts]
    (let [el (js/document.createElement el-type)]
+     (when (:attr opts) (apply set-attribute! el (:attr opts)))
+     (when (:attrs opts) (set-attributes! el (:attrs opts)))
      (when (:id opts) (set! (.-id el) (:id opts)))
      (when (:class opts) (add-class! el (:class opts)))
      (when (:classes opts) (add-classes! el (:classes opts)))
