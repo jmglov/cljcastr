@@ -84,40 +84,46 @@
 
 (defn add-children!
   "Adds list of `children` to the element identified by `selector`. `selector`
-   may also be an element."
+   may also be an element. Returns the element."
   [selector children]
   (when-let [el (get-el selector)]
     (doseq [child children]
-      (.appendChild el child))))
+      (.appendChild el child))
+    el))
 
 (defn add-child!
   "Convenience function to add a single child to the element identified by
-   `selector`. `selector` may also be an element."
+   `selector`. `selector` may also be an element. Returns the element."
   [selector child]
   (add-children! selector [child]))
 
 (defn insert-child-after!
   "Inserts `child` after the element identified by `selector`. `selector` may
-   also be an element."
+   also be an element. Returns the parent element."
   [selector child]
   (when-let [sibling (get-el selector)]
     (let [next-sibling (.-nextSibling sibling)
           parent (.-parentNode sibling)]
       (if next-sibling
-        (.insertBefore parent child next-sibling)
+        (do
+          (.insertBefore parent child next-sibling)
+          parent)
         (add-child! parent child)))))
 
 (defn insert-child-before!
   "Inserts `child` before the element identified by `selector`. `selector` may
-   also be an element."
+   also be an element. Returns the parent element."
   [selector child]
   (when-let [sibling (get-el selector)]
-    (.insertBefore (.-parentNode sibling) child sibling)))
+    (let [parent (.-parentNode sibling)]
+      (.insertBefore parent child sibling)
+      parent)))
 
 (defn insert-child!
   "Inserts `child` as the nth child of the element identified by `selector`.
    `selector` may also be an element. If the element has no children or `n` is
-   at the end of the list (or beyond), `child` will be added with `add-child!`."
+   at the end of the list (or beyond), `child` will be added with `add-child!`.
+   Returns the parent element."
   [selector child n]
   (when-let [el (get-el selector)]
     (let [n (if (neg? n) 0 n)
@@ -125,18 +131,21 @@
           num-children (count children)]
       (if (or (empty? children) (>= n (dec num-children)))
         (add-child! el child)
-        (.insertBefore el child (nth children n))))))
+        (do
+          (.insertBefore el child (nth children n))
+          el)))))
 
 (defn clear-children!
   "Removes all children from the element identified by `selector`. `selector`
-   may also be an element."
+   may also be an element. Returns the element."
   [selector]
   (when-let [el (get-el selector)]
-    (.replaceChildren el)))
+    (.replaceChildren el)
+    el))
 
 (defn set-children!
   "Sets children of the element identified by `selector` to the list of
-   `children`. `selector` may also be an element."
+   `children`. `selector` may also be an element. Returns the element."
   [selector children]
   (when-let [el (get-el selector)]
     (clear-children! el)
@@ -144,31 +153,38 @@
 
 (defn set-child!
   "Convenience function to set children of the element identified by
-   `selector` to a single `child`. `selector` may also be an element."
+   `selector` to a single `child`. `selector` may also be an element.
+   Returns the element."
   [selector child]
   (set-children! selector [child]))
 
 (defn take-children!
   "Sets children of the element identified by `selector` to its first `n`
-   children. `selector` may also be an element."
+   children. `selector` may also be an element. Returns the element."
   [selector n]
   (when-let [el (get-el selector)]
-    (->> el .-childNodes seq (take n) (set-children! el))))
+    (->> el
+         .-childNodes
+         seq
+         (take n)
+         (set-children! el))))
 
 (defn remove-child!
-  "Removes `child` from its parent."
+  "Removes `child` from its parent. Returns the parent element."
   [child]
   (when-let [parent (.-parentNode child)]
-    (.removeChild parent child)))
+    (.removeChild parent child)
+    parent))
 
 (defn add-classes!
   "Adds `classes` to the element identified by `selector`. `selector` may also be
-   an element."
+   an element. Returns the element."
   [selector classes]
   (when-let [el (get-el selector)]
     (let [classes (if (sequential? classes) classes [classes])]
       (doseq [cls classes]
-        (-> el .-classList (.add cls))))))
+        (-> el .-classList (.add cls))))
+    el))
 
 (defn add-class!
   "Convenience function to add a single class `cls` to the element identified by
@@ -178,14 +194,15 @@
 
 (defn clear-classes!
   "Removes all classes from the element identified by `selector`. `selector` may
-   also be an element."
+   also be an element. Returns the element."
   [selector]
   (when-let [el (get-el selector)]
-    (set! (.-className el) "")))
+    (set! (.-className el) "")
+    el))
 
 (defn set-classes!
   "Sets classes of the element identified by `selector` to list of `classes`.
-   `selector` may also be an element."
+   `selector` may also be an element. Returns the element."
   [selector classes]
   (when-let [el (get-el selector)]
     (clear-classes! el)
@@ -193,16 +210,18 @@
 
 (defn set-class!
   "Convenience function to set classes of the element identified by `selector`
-   to a single class `cls`. `selector` may also be an element."
+   to a single class `cls`. `selector` may also be an element. Returns the
+   element."
   [selector cls]
   (set-classes! selector [cls]))
 
 (defn remove-class!
   "Removes class `cls` from the element identified by `selector`. `selector` may
-   also be an element."
+   also be an element. Returns the element."
   [selector cls]
   (when-let [el (get-el selector)]
-    (-> el .-classList (.remove cls))))
+    (-> el .-classList (.remove cls))
+    el))
 
 (defn has-class?
   "Returns true if the element identified by `selector` has class `cls`.
@@ -213,35 +232,38 @@
 
 (defn set-attribute!
   "Sets attribute `attr` of the element identified by `selector` to `v`.
-   `selector` may also be an element."
+   `selector` may also be an element. Returns the element."
   [selector attr v]
   (when-let [el (get-el selector)]
-    (.setAttribute el (name attr) v)))
+    (.setAttribute el (name attr) v)
+    el))
 
 (defn set-attributes!
   "Given a list of attribute name / value pairs `attrs`, sets each attribute of
    the element identified by `selector` to the corresponding value. `selector`
-   may also be an element."
+   may also be an element. Returns the element."
   [selector attrs]
   (when-let [el (get-el selector)]
     (if (or (sequential? attrs) (map? attrs))
       (doseq [[k v] attrs]
         (set-attribute! el k v))
       (error! "attrs must be a list of attribute / value pairs; was:"
-              (type attrs)))))
+              (type attrs)))
+    el))
 
 (defn set-html!
   "Sets inner HTML of the element identified by `selector` to `html`.
-   `selector` may also be an element."
+   `selector` may also be an element. Returns the element."
   [selector html]
   (when-let [el (get-el selector)]
-    (set! (.-innerHTML el) html)))
+    (set! (.-innerHTML el) html)
+    el))
 
 (defn set-styles!
   "Sets styles of the element identified by `selector` to `styles`, which can be
    either a string containing CSS styles (for example, `font-weight: bold;`) or
    a map of style to value (for example: `{:font-weight \"bold\"}`. `selector`
-   may also be an element."
+   may also be an element. Returns the element."
   [selector styles]
   (when-let [el (get-el selector)]
     (let [styles
@@ -251,39 +273,44 @@
                                (map (fn [[k v]] (str (name k) ": " k ";")))
                                (str/join " "))
             :else (error! "styles must be a string or a map; was:" (type styles)))]
-      (set! (.-style el) styles))))
+      (set! (.-style el) styles))
+    el))
 
 (defn set-text!
   "Sets inner text of the element identified by `selector` to `text`. `selector`
-   may also be an element."
+   may also be an element. Returns the element."
   [selector text]
   (when-let [el (get-el selector)]
-    (set! (.-textContent el) text)))
+    (set! (.-textContent el) text)
+    el))
 
 (defn set-value!
   "Sets value of the element identified by `selector` to `v`. `selector` may
-   also be an element."
+   also be an element. Returns the element."
   [selector v]
   (when-let [el (get-el selector)]
-    (set! (.-value el) v)))
+    (set! (.-value el) v)
+    el))
 
 (defn select-el!
   "Selects all text in the element identified by `selector`. `selector` may also
-   be an element."
+   be an element. Returns the element."
   [selector]
   (when-let [el (get-el selector)]
     (let [sel (js/window.getSelection)
           rng (js/document.createRange)]
       (.selectNodeContents rng el)
       (.removeAllRanges sel)
-      (.addRange sel rng))))
+      (.addRange sel rng))
+    el))
 
 (defn focus-el
   "Focuses the element identified by `selector`. `selector` may also be an
-   element."
+   element. Returns the element."
   [selector]
   (when-let [el (get-el selector)]
-    (.focus el)))
+    (.focus el)
+    el))
 
 (defn create-el
   "Creates an element of type `el-type`. If the `:id` key is present in `opts`,
@@ -305,7 +332,7 @@
   "Moves the cursor to the specified offset within the editable element
    identified by `selector`. `selector` may also be an element. If `offset`
    is `:end`, the cursor will be placed at the end, and if it is negative, the
-   cursor will be placed `offset` characters from the end."
+   cursor will be placed `offset` characters from the end. Returns the element."
   [selector offset]
   (when-let [el (get-el selector)]
     (let [el (-> el (get-child 0))  ; the child is a Text object
@@ -319,7 +346,8 @@
         (.setStart rng el offset)
         (.setEnd rng el offset))
       (.removeAllRanges sel)
-      (.addRange sel rng))))
+      (.addRange sel rng))
+    el))
 
 (defn add-listener!
   "Adds an event listener to the element specified by `selector` for events of
@@ -328,7 +356,7 @@
    element, unless it is `js/document` or `js/winodw`, which are handled as
    special cases. If the element has no ID and is not `js/document` or
    `js/window`, the listener is not registered and therefore cannot be removed by
-   `clear-listeners!`."
+   `clear-listeners!`. Returns the list of listeners on the element."
   [state selector event-type f]
   (.addEventListener (get-el selector) event-type f)
   (let [selector (or (get-selector selector)
@@ -343,7 +371,8 @@
    `state` atom. If `event-type` is passed, only listeners for the specified
    event type are removed. If only the `state` atom is passed, removes all
    listeners on all elements. `selector` may also be an element with an ID or
-   `js/document`; otherwise, nothing will be done."
+   `js/document`; otherwise, nothing will be done. Returns the list of listeners
+   on the element."
   ([state]
    (doseq [[selector _] (:listeners @state)]
      (clear-listeners! state selector)))
