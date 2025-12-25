@@ -239,26 +239,6 @@
                 arg)))
        (apply str)))
 
-(defn get-el [selector]
-  (if (instance? js/HTMLElement selector)
-    selector  ; already an element; just return it
-    (js/document.querySelector selector)))
-
-(defn set-children! [el children]
-  (.replaceChildren el)
-  (doseq [child children]
-    (.appendChild el child))
-  el)
-
-(defn set-styles! [el styles]
-  (set! (.-style (get-el el)) styles))
-
-(defn add-class! [el cls]
-  (-> el (.-classList) (.add cls)))
-
-(defn remove-class! [el cls]
-  (-> el (.-classList) (.remove cls)))
-
 (defn parse-xml [xml-str]
   (.parseFromString (js/window.DOMParser.) xml-str "text/xml"))
 
@@ -269,15 +249,14 @@
          (log "Fetched XML:")))
 
 (defn xml-get [el k]
-  (when-let [node (-> el (.querySelector k))]
-    (-> (.-innerHTML node)
+  (when-let [html (-> (dom/get-el el k) dom/get-html)]
+    (-> html
         (str/replace #"^<!\[CDATA\[(:?\n)?" "")
         (str/replace #"(:?\n)?\]\]>$" ""))))
 
 (defn xml-get-attr [el k attr]
-  (-> el
-      (.querySelector k)
-      (.getAttribute attr)))
+  (when-let [el (dom/get-el el k)]
+    (.getAttribute el attr)))
 
 (defn mk-svg-path
   ([cls d]
@@ -292,8 +271,8 @@
          (.setAttribute "opacity" opacity))
        path)))
   ([_ el-name _ paths]
-   (set-children! (js/document.createElementNS svg-ns el-name)
-                  (map (partial apply mk-svg-path) paths))))
+   (dom/set-children! (js/document.createElementNS svg-ns el-name)
+                      (map (partial apply mk-svg-path) paths))))
 
 (defn mk-svg []
   (let [svg (js/document.createElementNS svg-ns "svg")]
@@ -422,7 +401,7 @@
                  :title (xml-get xml "title")
                  :image (xml-get-attr xml "image" "href")}]
     (assoc podcast :episodes
-           (->> (.querySelectorAll xml "item")
+           (->> (dom/get-els xml "item")
                 (map (partial ->episode podcast))
                 (sort-by :number)
                 vec))))
@@ -508,8 +487,8 @@
         cur-pos-x (* pos sec-width)
         cur-pos-y (/ canvas-height 2)
         cur-pos-r (/ canvas-height 2)]
-    (set! (.-innerHTML (get-el timeline-position-selector))
-          (str (format-pos pos true) " / " (format-pos duration true)))
+    (dom/set-html! timeline-position-selector
+                   (str (format-pos pos true) " / " (format-pos duration true)))
     (draw-rect! ctx 0 0 canvas-width canvas-height "lightgray")
     (doseq [[start end] buffered
             :let [start-x (* start sec-width)
@@ -550,7 +529,7 @@
       (when el
         (let [button (js/document.createElement "button")]
           (.setAttribute button "aria-label" "Play from current timestamp")
-          (set-styles! button "margin-right: 5px;")
+          (dom/set-styles! button "margin-right: 5px;")
           (set! (.-title button) "Play from here")
           (set! (.-innerHTML button) "▶️")
           (.addEventListener button "mouseover"
@@ -566,11 +545,11 @@
 
 (defn display-transcript! [{:keys [transcript-selector] :as opts} transcript]
   (log "Displaying transcript:" transcript)
-  (set! (.-innerHTML (get-el transcript-selector)) transcript)
-  (doseq [span (.querySelectorAll (get-el "#transcript-body") "span.timestamp")
+  (dom/set-html! transcript-selector transcript)
+  (doseq [span (dom/get-els "#transcript-body" "span.timestamp")
           :let [id (str "timestamp-"
                         (-> span
-                            (.getAttribute "data-timestamp")
+                            (dom/get-attribute "data-timestamp")
                             (str/replace "." "-")))]]
     (set! (.-id span) id)
     (set! (.-title span) "Jump to here")
@@ -656,15 +635,15 @@
                  assoc :transcript transcript)
           (display-transcript! opts transcript))))
     (let [audio-el (:audio-el @state)]
-      (set! (.-title audio-el) (str artist " - " title))
+      (dom/set-attribute! audio-el :title (str artist " - " title))
       (when-not single-episode
-        (let [episode-spans (seq (.-children (get-el "#episodes")))]
+        (let [episode-spans (dom/get-children "#episodes")]
           (doseq [span episode-spans]
-            (set-styles! span "font-weight: normal;"))
+            (dom/set-styles! span "font-weight: normal;"))
           (-> episode-spans
               (nth episode-index)
-              (set-styles! "font-weight: bold;"))))
-      (set! (.-src audio-el) src)
+              (dom/set-styles! "font-weight: bold;"))))
+      (dom/set-attribute! audio-el :src src)
       (when-not paused?
         (.play audio-el)))
     (display-timeline! opts)
@@ -675,11 +654,11 @@
   (str "#" (name button-name) "-button"))
 
 (defn toggle-button! [button-name src tgt]
-  (if-let [button (get-el (button-selector button-name))]
+  (if-let [button (dom/get-el (button-selector button-name))]
     (doseq [cls ["drop-shadow" "bg" "shine"]
             p (.querySelectorAll button (str "." cls src))]
-      (add-class! p (str cls tgt))
-      (remove-class! p (str cls src)))
+      (dom/add-class! p (str cls tgt))
+      (dom/remove-class! p (str cls src)))
     (log (str "Couldn't resolve button with selector: "
               (button-selector button-name)
               "; button is probably not enabled"))))
@@ -691,10 +670,10 @@
   (toggle-button! button-name "-off" ""))
 
 (defn show-button! [button-name]
-  (set-styles! (button-selector button-name) "display: inline"))
+  (dom/set-styles! (button-selector button-name) "display: inline"))
 
 (defn hide-button! [button-name]
-  (set-styles! (button-selector button-name) "display: none"))
+  (dom/set-styles! (button-selector button-name) "display: none"))
 
 (defn toggle-repeat! []
   (let [{:keys [repeating? repeating-all?]} (swap! state toggle-repeat)]
@@ -801,7 +780,7 @@
   (hide-button! :play)
   (show-button! :pause)
   (turn-on-button! :stop)
-  (.focus (get-el (button-selector :pause)))
+  (dom/focus-el (button-selector :pause))
   (log "Playlist:" (format-playlist @state)))
 
 (defn pause-episode! []
@@ -810,7 +789,7 @@
   (swap! state assoc :paused? true)
   (hide-button! :pause)
   (show-button! :play)
-  (.focus (get-el (button-selector :play))))
+  (dom/focus-el (button-selector :play)))
 
 (defn stop-episode! []
   (log (str "Stopping at " (format-playback)))
@@ -821,7 +800,7 @@
   (show-button! :play)
   (hide-button! :pause)
   (turn-off-button! :stop)
-  (.focus (get-el (button-selector :play))))
+  (dom/focus-el (button-selector :play)))
 
 (defn move-to-episode! [n]
   (log (str "Moving to episode " n " from " (format-playback)))
@@ -866,7 +845,7 @@
 
 (defn add-click-handler! [button-name f]
   (let [button-id (button-selector button-name)
-        button (get-el button-id)]
+        button (dom/get-el button-id)]
     (log (str "Installing click handler for " button-name)
          button)
     (.addEventListener button "click"
@@ -877,22 +856,20 @@
 
 (defn mk-player-button [button-name]
   (log "Making player button:" button-name)
-  (let [button-el (js/document.createElement "button")
+  (let [button-el (dom/create-el "button" {:id (str (name button-name) "-button")})
         svg-el (mk-svg)
-        span-el (-> (js/document.createElement "span")
-                    (doto (.setAttribute "class" "sr-only")))]
-    (set! (.-id button-el) (str (name button-name) "-button"))
-    (let [{:keys [label paths]} (buttons button-name)]
-      (set! (.-innerHTML span-el) label)
-      (doseq [path paths]
-        (.appendChild svg-el (apply mk-svg-path path))))
-    (.appendChild button-el svg-el)
-    (.appendChild button-el span-el)
+        span-el (dom/create-el "span" {:class "sr-only"})
+        {:keys [label paths]} (buttons button-name)]
+    (dom/set-html! span-el label)
+    (doseq [path paths]
+      (dom/add-child! svg-el (apply mk-svg-path path)))
+    (dom/add-child! button-el svg-el)
+    (dom/add-child! button-el span-el)
     button-el))
 
 (defn init-buttons! [{:keys [controls-selector enabled-buttons] :as opts}]
-  (set-children! (get-el controls-selector)
-                 (map mk-player-button enabled-buttons))
+  (dom/set-children! (dom/get-el controls-selector)
+                     (map mk-player-button enabled-buttons))
   (when (:shuffle enabled-buttons)
     (turn-off-button! :shuffle)
     (add-click-handler! :shuffle toggle-shuffle!))
@@ -909,7 +886,7 @@
     (hide-button! :repeat-one)
     (add-click-handler! :repeat-one toggle-repeat!))
   (when (:play enabled-buttons)
-    (.focus (get-el (button-selector :play)))
+    (dom/focus-el (button-selector :play))
     (add-click-handler! :play play-episode!))
   (when (:back enabled-buttons)
     (add-click-handler! :back back-episode!))
@@ -921,8 +898,8 @@
     (add-click-handler! :next advance-episode!)))
 
 (defn init-audio! [{:keys [audio-selector timeline-canvas-selector] :as opts}]
-  (let [audio (get-el audio-selector)
-        canvas (get-el timeline-canvas-selector)]
+  (let [audio (dom/get-el audio-selector)
+        canvas (dom/get-el timeline-canvas-selector)]
     (swap! state assoc
            :audio-el audio
            :timeline-canvas-el canvas)
@@ -939,7 +916,7 @@
 (defn episode->span [{:keys [number title] :as episode}]
   (let [span (js/document.createElement "span")]
     (set! (.-innerHTML span) (str number ". " title))
-    (add-class! span "clickable")
+    (dom/add-class! span "clickable")
     (.addEventListener span "click" (partial move-to-episode! number))
     span))
 
@@ -949,22 +926,22 @@
                                 title-fmt single-episode]
                          :as opts}
                         {:keys [artist title image episodes] :as podcast}]
-  (let [cover (get-el cover-selector)
-        main (get-el main-selector)
+  (let [cover (dom/get-el cover-selector)
+        main (dom/get-el main-selector)
         episode (episodes (get-episode-index @state))
         fmt-data {:podcast podcast, :episode episode}]
     (when cover
       (set! (.-src cover) image))
     (when title-selector
-      (set! (.-innerHTML (get-el title-selector)) (fmt title-fmt fmt-data)))
+      (dom/set-html! title-selector (fmt title-fmt fmt-data)))
     (if single-episode
       (when description-selector
-        (set! (.-innerHTML (get-el description-selector)) (:description episode)))
+        (dom/set-html! description-selector (:description episode)))
       (->> episodes
            (map episode->span)
-           (set-children! (get-el "#episodes"))))
+           (dom/set-children! (dom/get-el "#episodes"))))
     (when main
-      (set-styles! main "display: flex;"))
+      (dom/set-styles! main "display: flex;"))
     podcast))
 
 (defn load-ui! [{:keys [feed-url] :as opts}]
