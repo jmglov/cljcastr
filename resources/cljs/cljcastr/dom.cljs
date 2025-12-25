@@ -13,7 +13,8 @@
    (get-el js/document selector))
   ([el selector]
    (if (string? selector)
-     (.querySelector el selector)
+     (when selector
+       (.querySelector el selector))
      selector)))
 
 (defn get-els
@@ -23,7 +24,8 @@
    (get-els js/document selector))
   ([el selector]
    (if (string? selector)
-     (.querySelectorAll el selector)
+     (when selector
+       (.querySelectorAll el selector))
      ;; Selector is not a string, so assume it's an element and return it
      selector)))
 
@@ -32,9 +34,10 @@
    ID. `el` may also be a string, in which case it is assumed to be a selector
    and just returned."
   [el]
-  (let [selector (if (string? el) el (str "#" (.-id el)))]
-    (when (not= "#" selector)
-      selector)))
+  (when el
+    (let [selector (if (string? el) el (str "#" (.-id el)))]
+      (when (not= "#" selector)
+        selector))))
 
 (defn get-html
   "Returns inner HTML of the element identified by `selector`. `selector` may
@@ -75,7 +78,7 @@
   "Adds list of `children` to the element identified by `selector`. `selector`
    may also be an element."
   [selector children]
-  (let [el (get-el selector)]
+  (when-let [el (get-el selector)]
     (doseq [child children]
       (.appendChild el child))))
 
@@ -89,45 +92,45 @@
   "Inserts `child` after the element identified by `selector`. `selector` may
    also be an element."
   [selector child]
-  (let [sibling (get-el selector)
-        next-sibling (.-nextSibling sibling)
-        parent (.-parentNode sibling)]
-    (if next-sibling
-      (.insertBefore parent child next-sibling)
-      (add-child! parent child))))
+  (when-let [sibling (get-el selector)]
+    (let [next-sibling (.-nextSibling sibling)
+          parent (.-parentNode sibling)]
+      (if next-sibling
+        (.insertBefore parent child next-sibling)
+        (add-child! parent child)))))
 
 (defn insert-child-before!
   "Inserts `child` before the element identified by `selector`. `selector` may
    also be an element."
   [selector child]
-  (let [sibling (get-el selector)
-        parent (.-parentNode sibling)]
-    (.insertBefore parent child sibling)))
+  (when-let [sibling (get-el selector)]
+    (.insertBefore (.-parentNode sibling) child sibling)))
 
 (defn insert-child!
   "Inserts `child` as the nth child of the element identified by `selector`.
    `selector` may also be an element. If the element has no children or `n` is
    at the end of the list (or beyond), `child` will be added with `add-child!`."
   [selector child n]
-  (let [n (if (neg? n) 0 n)
-        el (get-el selector)
-        children (seq (.-childNodes el))
-        num-children (count children)]
-    (if (or (empty? children) (>= n (dec num-children)))
-      (add-child! el child)
-      (.insertBefore el child (nth children n)))))
+  (when-let [el (get-el selector)]
+    (let [n (if (neg? n) 0 n)
+          children (seq (.-childNodes el))
+          num-children (count children)]
+      (if (or (empty? children) (>= n (dec num-children)))
+        (add-child! el child)
+        (.insertBefore el child (nth children n))))))
 
 (defn clear-children!
   "Removes all children from the element identified by `selector`. `selector`
    may also be an element."
   [selector]
-  (.replaceChildren (get-el selector)))
+  (when-let [el (get-el selector)]
+    (.replaceChildren el)))
 
 (defn set-children!
   "Sets children of the element identified by `selector` to the list of
    `children`. `selector` may also be an element."
   [selector children]
-  (let [el (get-el selector)]
+  (when-let [el (get-el selector)]
     (clear-children! el)
     (add-children! el children)))
 
@@ -141,22 +144,23 @@
   "Sets children of the element identified by `selector` to its first `n`
    children. `selector` may also be an element."
   [selector n]
-  (let [el (get-el selector)]
+  (when-let [el (get-el selector)]
     (->> el .-childNodes seq (take n) (set-children! el))))
 
 (defn remove-child!
   "Removes `child` from its parent."
   [child]
-  (.removeChild (.-parentNode child) child))
+  (when-let [parent (.-parentNode child)]
+    (.removeChild parent child)))
 
 (defn add-classes!
   "Adds `classes` to the element identified by `selector`. `selector` may also be
    an element."
   [selector classes]
-  (let [el (get-el selector)
-        classes (if (sequential? classes) classes [classes])]
-    (doseq [cls classes]
-      (-> el .-classList (.add cls)))))
+  (when-let [el (get-el selector)]
+    (let [classes (if (sequential? classes) classes [classes])]
+      (doseq [cls classes]
+        (-> el .-classList (.add cls))))))
 
 (defn add-class!
   "Convenience function to add a single class `cls` to the element identified by
@@ -168,13 +172,14 @@
   "Removes all classes from the element identified by `selector`. `selector` may
    also be an element."
   [selector]
-  (set! (.-className (get-el selector)) ""))
+  (when-let [el (get-el selector)]
+    (set! (.-className el) "")))
 
 (defn set-classes!
   "Sets classes of the element identified by `selector` to list of `classes`.
    `selector` may also be an element."
   [selector classes]
-  (let [el (get-el selector)]
+  (when-let [el (get-el selector)]
     (clear-classes! el)
     (add-classes! el classes)))
 
@@ -188,19 +193,22 @@
   "Removes class `cls` from the element identified by `selector`. `selector` may
    also be an element."
   [selector cls]
-  (-> (get-el selector) .-classList (.remove cls)))
+  (when-let [el (get-el selector)]
+    (-> el .-classList (.remove cls))))
 
 (defn has-class?
   "Returns true if the element identified by `selector` has class `cls`.
    `selector` may also be an element."
   [selector cls]
-  (-> (get-el selector) .-classList (.contains cls)))
+  (when-let [el (get-el selector)]
+    (-> el .-classList (.contains cls))))
 
 (defn set-attribute!
   "Sets attribute `attr` of the element identified by `selector` to `v`.
    `selector` may also be an element."
   [selector attr v]
-  (.setAttribute (get-el selector) attr v))
+  (when-let [el (get-el selector)]
+    (.setAttribute el (name attr) v)))
 
 (defn set-attributes!
   "Given a list of attribute name / value pairs `attrs`, sets each attribute of
@@ -218,7 +226,8 @@
   "Sets inner HTML of the element identified by `selector` to `html`.
    `selector` may also be an element."
   [selector html]
-  (set! (.-innerHTML (get-el selector)) html))
+  (when-let [el (get-el selector)]
+    (set! (.-innerHTML el) html)))
 
 (defn set-styles!
   "Sets styles of the element identified by `selector` to `styles`. `selector`
@@ -230,24 +239,26 @@
   "Sets inner text of the element identified by `selector` to `text`. `selector`
    may also be an element."
   [selector text]
-  (set! (.-textContent (get-el selector)) text))
+  (when-let [el (get-el selector)]
+    (set! (.-textContent el) text)))
 
 (defn set-value!
   "Sets value of the element identified by `selector` to `v`. `selector` may
    also be an element."
   [selector v]
-  (set! (.-value (get-el selector)) v))
+  (when-let [el (get-el selector)]
+    (set! (.-value el) v)))
 
 (defn select-el!
   "Selects all text in the element identified by `selector`. `selector` may also
    be an element."
   [selector]
-  (let [el (get-el selector)
-        sel (js/window.getSelection)
-        rng (js/document.createRange)]
-    (.selectNodeContents rng el)
-    (.removeAllRanges sel)
-    (.addRange sel rng)))
+  (when-let [el (get-el selector)]
+    (let [sel (js/window.getSelection)
+          rng (js/document.createRange)]
+      (.selectNodeContents rng el)
+      (.removeAllRanges sel)
+      (.addRange sel rng))))
 
 (defn create-el
   "Creates an element of type `el-type`. If the `:id` key is present in `opts`,
@@ -269,18 +280,19 @@
    is `:end`, the cursor will be placed at the end, and if it is negative, the
    cursor will be placed `offset` characters from the end."
   [selector offset]
-  (let [el (-> (get-el selector) (get-child 0))  ; the child is a Text object
-        len (count (get-text el))
-        sel (js/window.getSelection)
-        rng (js/document.createRange)]
-    (let [offset (cond
-                   (= :end offset) len
-                   (neg? offset) (+ len offset)
-                   :else offset)]
-      (.setStart rng el offset)
-      (.setEnd rng el offset))
-    (.removeAllRanges sel)
-    (.addRange sel rng)))
+  (when-let [el (get-el selector)]
+    (let [el (-> el (get-child 0))  ; the child is a Text object
+          len (count (get-text el))
+          sel (js/window.getSelection)
+          rng (js/document.createRange)]
+      (let [offset (cond
+                     (= :end offset) len
+                     (neg? offset) (+ len offset)
+                     :else offset)]
+        (.setStart rng el offset)
+        (.setEnd rng el offset))
+      (.removeAllRanges sel)
+      (.addRange sel rng))))
 
 (defn add-listener!
   "Adds an event listener to the element specified by `selector` for events of
