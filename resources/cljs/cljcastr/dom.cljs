@@ -230,10 +230,20 @@
     (set! (.-innerHTML el) html)))
 
 (defn set-styles!
-  "Sets styles of the element identified by `selector` to `styles`. `selector`
+  "Sets styles of the element identified by `selector` to `styles`, which can be
+   either a string containing CSS styles (for example, `font-weight: bold;`) or
+   a map of style to value (for example: `{:font-weight \"bold\"}`. `selector`
    may also be an element."
   [selector styles]
-  (set! (.-style (get-el selector)) styles))
+  (when-let [el (get-el selector)]
+    (let [styles
+          (cond
+            (string? styles) styles
+            (map? styles) (->> styles
+                               (map (fn [[k v]] (str (name k) ": " k ";")))
+                               (str/join " "))
+            :else (error! "styles must be a string or a map; was:" (type styles)))]
+      (set! (.-style el) styles))))
 
 (defn set-text!
   "Sets inner text of the element identified by `selector` to `text`. `selector`
