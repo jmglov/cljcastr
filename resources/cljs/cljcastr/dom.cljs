@@ -278,6 +278,13 @@
       (.removeAllRanges sel)
       (.addRange sel rng))))
 
+(defn focus-el
+  "Focuses the element identified by `selector`. `selector` may also be an
+   element."
+  [selector]
+  (when-let [el (get-el selector)]
+    (.focus el)))
+
 (defn create-el
   "Creates an element of type `el-type`. If the `:id` key is present in `opts`,
    the id of the element will be set to it. If the `:class` key is present in
