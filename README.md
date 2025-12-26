@@ -13,6 +13,17 @@ set of tools for producing and self-hosting podcasts.
    repository has been AI generated, and no AI generated pull requests will even
    be considered for inclusion.
 
+cljcastr is hosted on Codeberg at
+[jmglov/cljcastr](https://codeberg.org/jmglov/cljcastr). It is mirrored for the
+time being on Github, but you should really be including it like this:
+
+``` clojure
+{:deps {jmglov/cljcastr
+        {:git/url "https://codeberg.org/jmglov/cljcastr"
+         #_"Use the latest SHA below"
+         :git/sha "b23ffdf59cc89c6309c521c3571dceb2b1db5866"}}}
+```
+
 ## Licence
 
 cljcastr is part of the Politechs Project, and is provided under the
