@@ -1,14 +1,14 @@
 (ns cljcastr.transcription.zencastr
-  (:require [babashka.fs :as fs]
-            [clojure.string :as str]
-            [cljcastr.util :refer [->map]]))
+  (:require [clojure.string :as str]
+            #?(:clj [babashka.fs :as fs])))
 
-(defn transcript-file
-  ([podcasts-root podcast-name episode-name]
-   (transcript-file (fs/file podcasts-root podcast-name episode-name)))
-  ([episode-dir]
-   (let [episode-name (fs/file-name episode-dir)]
-     (fs/file episode-dir (format "%s_transcription.txt" episode-name)))))
+#?(:clj
+   (defn transcript-file
+     ([podcasts-root podcast-name episode-name]
+      (transcript-file (fs/file podcasts-root podcast-name episode-name)))
+     ([episode-dir]
+      (let [episode-name (fs/file-name episode-dir)]
+        (fs/file episode-dir (str episode-name "_transcription.txt"))))))
 
 (defn transcript->paragraphs
   ([transcript]
