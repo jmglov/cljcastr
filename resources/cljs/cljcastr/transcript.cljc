@@ -1,5 +1,6 @@
 (ns cljcastr.transcript
-  (:require [clojure.edn :as edn]))
+  (:require [cljcastr.transcription.zencastr :as zencastr]
+            [clojure.edn :as edn]))
 
 (defn parse-transcript [transcript-type text]
   (case transcript-type
@@ -11,4 +12,4 @@
     (-> (js/JSON.parse text) (.-text))
 
     :txt
-    text))
+    (zencastr/transcript->paragraphs text)))

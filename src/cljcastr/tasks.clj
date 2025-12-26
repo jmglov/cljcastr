@@ -50,7 +50,14 @@
 
 (def cljs-libs-spec
   {:src-dir cljs-src-dir
-   :src-filenames (->cljs-src-filenames ["dom.cljs" "time.cljc" "transcript.cljc"])})
+   :src-filenames (->cljs-src-filenames
+                   ;; Order matters here. Files that depend on other files must
+                   ;; come later in the list to ensure that they're loaded
+                   ;; before being required.
+                   ["dom.cljs"
+                    "time.cljc"
+                    "transcription/zencastr.cljc"
+                    "transcript.cljc"])})
 
 (def cljs-app-spec
   {:player {:src-dir cljs-src-dir

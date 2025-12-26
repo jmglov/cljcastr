@@ -607,17 +607,8 @@
 (defn display-transcript! [{:keys [transcript-selector] :as opts}
                            {:keys [transcript-type transcript]}]
   (let [el (dom/get-el transcript-selector)
-        paragraphs
-        (case transcript-type
-          :txt
-          (->> transcript
-               str/split-lines
-               (remove empty?)
-               (map #(dom/create-el "p" {:text %})))
-
-          :edn
-          (->> transcript
-               (map-indexed create-transcript-paragraph)))]
+        paragraphs (->> transcript
+                        (map-indexed create-transcript-paragraph))]
     (dom/set-children! el paragraphs)
     el))
 
